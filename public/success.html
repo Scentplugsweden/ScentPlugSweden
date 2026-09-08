@@ -1,0 +1,16 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Order mottagen — ScentPlugSweden</title><link rel="stylesheet" href="/style.css"></head><body>
+<header><a class="logo" href="/">SCENT<span>PLUG</span>SWEDEN</a><a class="btn" href="/">Till shoppen</a></header>
+<main class="orderPage"><section class="panel orderLookup"><small>SCENTPLUGSWEDEN</small><h1>Tack för din order.</h1><p id="message">Vi kontrollerar betalningen…</p><div id="result"></div><a class="btn full" href="/" style="display:block;text-align:center;margin-top:20px">Fortsätt shoppa</a></section></main>
+<script>
+const $=s=>document.querySelector(s),p=new URLSearchParams(location.search),id=p.get('id'),email=p.get('email');
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+async function load(){
+ if(!id||!email){$('#message').textContent='Orderinformationen saknas.';return}
+ const r=await fetch('/api/orders/'+encodeURIComponent(id)+'?email='+encodeURIComponent(email)),o=await r.json();
+ if(!r.ok){$('#message').textContent=o.error||'Kunde inte läsa ordern.';return}
+ const paid=o.paymentStatus==='paid'||o.status==='Betald'||['Packas','Skickad','Levererad'].includes(o.status);
+ $('#message').innerHTML=paid?'Betalningen är bekräftad. Din order är registrerad.':'Din order är skapad och betalningen håller på att bekräftas. Du kan följa statusen här.';
+ $('#result').innerHTML='<div class="orderResult"><div class="orderResultHead"><div><small>ORDER</small><h2>'+esc(o.id)+'</h2></div><span class="pill">'+esc(o.status)+'</span></div><p><b>PostNord</b> · '+(o.shippingCost===0?'Fri frakt':o.shippingCost+' kr')+'</p><ul>'+o.items.map(i=>'<li>'+esc(i.name)+' — '+esc(i.size)+' × '+i.qty+'</li>').join('')+'</ul><div class="orderTotals"><span>Totalt</span><b>'+o.total+' kr</b></div><a class="btn full" href="/order?id='+encodeURIComponent(o.id)+'&email='+encodeURIComponent(email)+'">Visa orderstatus</a></div>';
+}
+load();
+</script></body></html>

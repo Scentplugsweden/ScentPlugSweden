@@ -1,0 +1,71 @@
+[
+  {
+    "id": "oud",
+    "name": "Oud Wood",
+    "brand": "Tom Ford",
+    "category": "Unisex",
+    "description": "Mörk, varm och exklusiv med en mjuk träig karaktär.",
+    "notes": [
+      "Oud",
+      "Kardemumma",
+      "Sandelträ"
+    ],
+    "sizes": {
+      "2 ml": 59,
+      "5 ml": 99,
+      "10 ml": 169
+    },
+    "image": "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=900&q=85",
+    "stock": {
+      "2 ml": 50,
+      "5 ml": 50,
+      "10 ml": 50
+    }
+  },
+  {
+    "id": "aventus",
+    "name": "Aventus",
+    "brand": "Creed",
+    "category": "Unisex",
+    "description": "Fruktig och träig med ananas, björk och ekmossa.",
+    "notes": [
+      "Ananas",
+      "Björk",
+      "Ekmossa"
+    ],
+    "sizes": {
+      "2 ml": 59,
+      "5 ml": 109,
+      "10 ml": 179
+    },
+    "image": "https://images.unsplash.com/photo-1595425970377-c9703cf48b6d?auto=format&fit=crop&w=900&q=85",
+    "stock": {
+      "2 ml": 50,
+      "5 ml": 50,
+      "10 ml": 50
+    }
+  },
+  {
+    "id": "acqua",
+    "name": "Acqua di Giò",
+    "brand": "Giorgio Armani",
+    "category": "Herr",
+    "description": "Ljus, fräsch och marin — perfekt för varmare dagar.",
+    "notes": [
+      "Bergamott",
+      "Marina noter",
+      "Ceder"
+    ],
+    "sizes": {
+      "2 ml": 45,
+      "5 ml": 79,
+      "10 ml": 139
+    },
+    "image": "https://images.unsplash.com/photo-1563170351-be82bc888aa4?auto=format&fit=crop&w=900&q=85",
+    "stock": {
+      "2 ml": 50,
+      "5 ml": 50,
+      "10 ml": 50
+    }
+  }
+]
