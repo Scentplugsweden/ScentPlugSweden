@@ -151,3 +151,65 @@ header{
   .winterHero .heroArt{display:none}
   .trust{grid-template-columns:2fr 2fr}
 }
+
+
+/* FINAL WINTER HERO IMAGE FIX */
+.winterHero{
+  position:relative!important;
+  min-height:680px!important;
+  background:#07111a!important;
+  color:#f6f8fa!important;
+  overflow:hidden!important;
+}
+.winterHero::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-2!important;
+  background:
+    linear-gradient(90deg,rgba(4,12,19,.98) 0%,rgba(4,12,19,.90) 26%,rgba(4,12,19,.48) 52%,rgba(4,12,19,.10) 78%,rgba(4,12,19,.18) 100%),
+    url('/assets/winter-hero-bg.jpg') right center / cover no-repeat!important;
+}
+.winterHero::after{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-1!important;
+  pointer-events:none!important;
+  opacity:.32!important;
+  background-image:
+    radial-gradient(circle at 8% 18%,rgba(255,255,255,.9) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 31% 63%,rgba(255,255,255,.7) 0 1.2px,transparent 2px),
+    radial-gradient(circle at 57% 22%,rgba(255,255,255,.8) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 83% 42%,rgba(255,255,255,.7) 0 1.2px,transparent 2px)!important;
+  background-size:180px 180px,240px 240px,210px 210px,260px 260px!important;
+}
+.winterHero .heroText{
+  position:relative!important;
+  z-index:3!important;
+  padding:82px 0!important;
+}
+.winterHero h1{
+  color:#fff!important;
+  text-shadow:0 4px 30px rgba(0,0,0,.3)!important;
+}
+.winterHero .heroText>p{color:#dce5ec!important}
+.winterHero .heroText small{color:#d9e6ef!important}
+.winterHero .heroCtas .link{color:#f0f4f7!important;border-color:rgba(255,255,255,.45)!important}
+.winterHero .heroArt{
+  position:relative!important;
+  z-index:2!important;
+}
+.winterHero .heroArt>*{display:none!important}
+@media(max-width:850px){
+  .winterHero{
+    min-height:720px!important;
+    background:#07111a!important;
+  }
+  .winterHero::before{
+    background:
+      linear-gradient(180deg,rgba(4,12,19,.62) 0%,rgba(4,12,19,.50) 42%,rgba(4,12,19,.82) 100%),
+      url('/assets/winter-hero-bg.jpg') center / cover no-repeat!important;
+  }
+  .winterHero .heroText{padding:90px 0 58px!important}
+}
