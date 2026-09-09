@@ -24,3 +24,130 @@ header{background:rgba(248,248,246,.94)!important;backdrop-filter:blur(14px);bor
 .winterHero .halo{width:360px!important;height:360px!important;background:radial-gradient(circle,rgba(236,242,244,.38),rgba(184,200,209,.12) 48%,transparent 70%)!important;right:17%!important;top:15%!important}.winterHero .bottle{z-index:2;box-shadow:0 30px 55px rgba(0,0,0,.55)!important;background:linear-gradient(105deg,#090909,#303438,#101010)!important;border:1px solid #4a5053}.winterHero .bottleLabel{background:#0d1114!important;color:#eef3f5!important;border:1px solid #8e989e}.heroSide{position:absolute;right:0;top:15%;z-index:4;display:flex;flex-direction:column;align-items:center;gap:14px;border-left:1px solid #71808a;padding-left:22px;color:#cdd6db;letter-spacing:4px;font-size:9px}.heroSide b{font-size:11px;font-weight:500}.trust{background:#080d12!important;border-top:1px solid #27323a}.trust div{border-color:#303b43!important}.trust strong{color:#f1f4f5}.trust span{color:#8e9aa2!important}.shop{background:#f5f3ef}.sectionHead h2,.faq h2,.about h2{letter-spacing:-1px}.card{border-color:#dfe2e3;box-shadow:0 10px 30px rgba(8,15,20,.04)}.cardImg{background:#e9edef}.cardImg img{object-fit:contain!important;padding:24px;box-sizing:border-box;mix-blend-mode:multiply}.about{background:linear-gradient(135deg,#0b1015,#18222a)!important}.faq{background:#f5f3ef}.footerText{color:#aeb8be}
 @media(max-width:850px){.winterHero{min-height:auto!important;padding:65px 7% 35px!important}.winterHero .heroArt{min-height:470px!important}.heroSide{right:3%;top:12%}.winterHero .heroText{margin-bottom:10px}}
 @media(max-width:560px){.winterHero{padding:48px 5% 20px!important}.winterHero h1{font-size:54px!important;letter-spacing:-3px!important}.winterHero .heroText>p{font-size:15px}.winterHero .heroArt{min-height:390px!important}.winterHero .halo{width:270px!important;height:270px!important;right:8%!important}.winterHero .bottle{transform:scale(.78);transform-origin:center bottom}.heroSide{display:none}.trust{padding:25px 6%!important}}
+
+
+/* WINTER REDESIGN — cinematic icy hero */
+.winterHero{
+  position:relative;
+  min-height:680px;
+  padding:0 7%;
+  display:grid;
+  grid-template-columns:1.02fr .98fr;
+  align-items:center;
+  overflow:hidden;
+  isolation:isolate;
+  color:#f5f7fa;
+  background:#08111a url('/assets/winter-hero.jpg') right center/auto 100% no-repeat;
+}
+.winterHero::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  background:
+    linear-gradient(90deg,#071018 0%,rgba(7,16,24,.94) 26%,rgba(7,16,24,.55) 50%,rgba(7,16,24,.08) 78%,rgba(7,16,24,.18) 100%),
+    linear-gradient(180deg,rgba(3,9,14,.45),transparent 35%,rgba(3,9,14,.25));
+}
+.winterHero::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  opacity:.38;
+  pointer-events:none;
+  background-image:
+    radial-gradient(circle at 8% 20%,rgba(255,255,255,.8) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 32% 65%,rgba(255,255,255,.65) 0 1.2px,transparent 2px),
+    radial-gradient(circle at 58% 18%,rgba(255,255,255,.7) 0 1px,transparent 1.8px),
+    radial-gradient(circle at 82% 42%,rgba(255,255,255,.65) 0 1.2px,transparent 2px);
+  background-size:180px 180px,240px 240px,210px 210px,260px 260px;
+}
+.winterHero .winterGlow,
+.winterHero .heroArt > *,
+.winterHero .heroArt .bottle,
+.winterHero .heroArt .halo,
+.winterHero .heroArt .winterRocks,
+.winterHero .heroArt .heroSide{
+  display:none;
+}
+.winterHero .heroText{
+  position:relative;
+  z-index:2;
+  max-width:650px;
+  padding:78px 0;
+}
+.winterHero .heroText small{
+  color:#dce8f2;
+  letter-spacing:4px;
+}
+.winterHero h1{
+  margin:18px 0 24px;
+  color:#fff;
+  font-family:Georgia,"Times New Roman",serif;
+  font-weight:400;
+  font-size:clamp(56px,6.5vw,96px);
+  line-height:.9;
+  letter-spacing:-5px;
+  text-shadow:0 3px 24px rgba(0,0,0,.28);
+}
+.winterHero h1 i{font-weight:400}
+.winterHero .heroText>p{
+  max-width:570px;
+  color:#d5dee6;
+  font-size:17px;
+  line-height:1.65;
+}
+.winterHero .btn{
+  background:#f7f7f5;
+  color:#0a0f14;
+  border:1px solid rgba(255,255,255,.7);
+}
+.winterHero .heroCtas .link{
+  color:#eef3f7;
+  border:1px solid rgba(255,255,255,.42);
+  padding:14px 22px;
+  border-radius:4px;
+  text-decoration:none;
+}
+.winterHero .rating{
+  color:#eef3f7;
+}
+.winterHero .rating .stars{
+  color:#fff;
+}
+header{
+  background:#f4f5f3;
+}
+.announcement{
+  background:#071018;
+  color:#dfe8ef;
+}
+.trust{
+  background:#080f15;
+  border-top:1px solid rgba(255,255,255,.1);
+}
+.trust strong{color:#f4f7fa}
+.trust span{color:#9eacb7}
+@media (max-width:900px){
+  .winterHero{
+    min-height:720px;
+    grid-template-columns:1fr;
+    padding:0 6%;
+    background-position:62% center;
+    background-size:auto 100%;
+  }
+  .winterHero::before{
+    background:
+      linear-gradient(180deg,rgba(5,13,20,.72) 0%,rgba(5,13,20,.72) 25%,rgba(5,13,20,.28) 65%,rgba(5,13,20,.75) 100%);
+  }
+  .winterHero .heroText{
+    align-self:end;
+    padding:80px 0 56px;
+  }
+  .winterHero h1{
+    font-size:clamp(48px,14vw,76px);
+    letter-spacing:-3px;
+  }
+  .winterHero .heroArt{display:none}
+  .trust{grid-template-columns:2fr 2fr}
+}
