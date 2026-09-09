@@ -166,12 +166,3 @@ Before launch:
 - [ ] Verify business, tax, consumer-rights, returns and privacy requirements before selling to the public.
 
 V7 is a launch candidate, not a legal or accounting approval.
-
-
-## Persistent product and order storage on Railway
-
-Products and orders are stored in `DATA_DIR`. On Railway, mount a persistent Volume at `/data` and leave `DATA_DIR` unset; the server automatically uses `/data`. On first startup, the bundled `products.json` and `orders.json` are copied there if they do not already exist. This prevents products and orders from disappearing on redeploy.
-
-## Product images
-
-The admin product form expects a direct URL to the original/high-resolution image. Avoid Google Images thumbnails or preview URLs. Product cards and the product modal use `object-fit: contain` so perfume bottles are not unnecessarily cropped.
