@@ -3,7 +3,12 @@ const Stripe=require('stripe');
 const app=express();
 const PORT=process.env.PORT||3000;
 const BASE_URL=(process.env.BASE_URL||`http://localhost:${PORT}`).replace(/\/$/,'');
-const productsFile=path.join(__dirname,'products.json'),ordersFile=path.join(__dirname,'orders.json'),localesDir=path.join(__dirname,'locales');
+const DATA_DIR=process.env.DATA_DIR||(fs.existsSync('/data')?'/data':__dirname);
+const productsFile=path.join(DATA_DIR,'products.json'),ordersFile=path.join(DATA_DIR,'orders.json'),localesDir=path.join(__dirname,'locales');
+fs.mkdirSync(DATA_DIR,{recursive:true});
+function ensureSeedFile(name,fallback){const target=path.join(DATA_DIR,name);if(!fs.existsSync(target)){const source=path.join(__dirname,name);if(fs.existsSync(source))fs.copyFileSync(source,target);else writeJson(target,fallback)}return target}
+ensureSeedFile('products.json',[]);
+ensureSeedFile('orders.json',[]);
 const ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||'';
 const STRIPE_SECRET_KEY=process.env.STRIPE_SECRET_KEY||'';
 const STRIPE_WEBHOOK_SECRET=process.env.STRIPE_WEBHOOK_SECRET||'';
