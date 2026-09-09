@@ -166,3 +166,5 @@ Before launch:
 - [ ] Verify business, tax, consumer-rights, returns and privacy requirements before selling to the public.
 
 V7 is a launch candidate, not a legal or accounting approval.
+
+<!-- Railway deployment trigger -->
