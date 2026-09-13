@@ -19,6 +19,7 @@ function normalizeProducts(products){
   for(const p of products){
     if(!p.stock||typeof p.stock!=='object'){p.stock={};Object.keys(p.sizes||{}).forEach(s=>p.stock[s]=50);changed=true}
     else for(const s of Object.keys(p.sizes||{})) if(!Number.isInteger(p.stock[s])){p.stock[s]=50;changed=true}
+    if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}
   }
   return {products,changed};
 }
@@ -194,13 +195,14 @@ app.post('/api/admin/products',auth,async(req,res)=>{
   const sizes={};for(const [s,v] of Object.entries(body.sizes)){const price=Number(v);if(!s||!Number.isFinite(price)||price<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=price}
   if(!Object.keys(sizes).length)return res.status(400).json({error:'Minst en storlek krävs.'});
   const stock={};for(const s of Object.keys(sizes))stock[s]=Math.max(0,Number.isInteger(Number(body.stock?.[s]))?Number(body.stock[s]):50);
-  const p={id,name:String(body.name).trim(),brand:String(body.brand).trim(),category:String(body.category).trim(),description:String(body.description).trim(),notes:Array.isArray(body.notes)?body.notes.map(String):[],sizes,stock,image:String(body.image).trim()};
+  const p={id,name:String(body.name).trim(),brand:String(body.brand).trim(),category:String(body.category).trim(),description:String(body.description).trim(),notes:Array.isArray(body.notes)?body.notes.map(String):[],sizes,stock,image:String(body.image).trim(),bestseller:body.bestseller===true};
   await saveProduct(p);res.json({ok:true,product:p});
 });
 app.patch('/api/admin/products/:id',auth,async(req,res)=>{
   const p=await getProduct(req.params.id);if(!p)return res.status(404).json({error:'Product not found'});const b=req.body||{};
   ['name','brand','category','description','image'].forEach(k=>{if(b[k]!==undefined)p[k]=String(b[k]).trim()});
   if(b.notes!==undefined)p.notes=Array.isArray(b.notes)?b.notes.map(String):[];
+  if(b.bestseller!==undefined)p.bestseller=b.bestseller===true;
   if(b.sizes!==undefined){if(!b.sizes||typeof b.sizes!=='object')return res.status(400).json({error:'Ogiltiga storlekar.'});const sizes={};for(const [s,v] of Object.entries(b.sizes)){const n=Number(v);if(!s||!Number.isFinite(n)||n<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=n}p.sizes=sizes;p.stock=p.stock||{};for(const s of Object.keys(sizes))if(!Number.isInteger(p.stock[s]))p.stock[s]=50;for(const s of Object.keys(p.stock))if(!Object.prototype.hasOwnProperty.call(sizes,s))delete p.stock[s]}
   if(b.stock!==undefined){if(!b.stock||typeof b.stock!=='object')return res.status(400).json({error:'Ogiltigt lager.'});for(const s of Object.keys(p.sizes||{})){const n=Number(b.stock[s]);if(!Number.isInteger(n)||n<0||n>100000)return res.status(400).json({error:'Lager måste vara ett heltal 0–100000.'});p.stock[s]=n}}
   await saveProduct(p);res.json({ok:true,product:p});
