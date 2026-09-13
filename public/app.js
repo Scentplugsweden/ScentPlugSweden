@@ -1,7 +1,7 @@
 let products=[];let cart=JSON.parse(localStorage.getItem('spcart')||'[]');let category='Alla';let selected=null;let selectedSize=null;let lang=localStorage.getItem('splang')||'sv';let ui={};let productTranslations={};
 const $=s=>document.querySelector(s);
 const escapeHtml=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
-function t(key,fallback=key,vars={}){let text=ui[key]||fallback;for(const [name,value] of Object.entries(vars)){text=text.replace(new RegExp("\{"+name+"\}","g"),String(value))}return text}
+function t(key,fallback=key,vars={}){if(fallback&&typeof fallback==='object'){vars=fallback;fallback=key}let text=ui[key]||fallback;for(const [name,value] of Object.entries(vars)){text=text.replace(new RegExp("\\{"+name+"\\}","g"),String(value))}return text}
 function categoryLabel(v){return t(`category.${String(v).toLowerCase()}`,v)}
 function productText(p){
   const tr=productTranslations[p.id]||{};
@@ -86,7 +86,7 @@ function renderProducts(){
     const price=Math.min(...Object.values(p.sizes).map(Number));
     const soldOut=Object.values(p.stock||{}).every(v=>Number(v)<=0);
     return `<article class="card ${soldOut?'soldOut':''}">
-      <div class="cardImg"><img src="${escapeHtml(p.image)}" alt="${escapeHtml(tr.name)}"><span class="stockBadge ${soldOut?'out':''}">${escapeHtml(stockText(p))}</span>
+      <div class="cardImg"><img src="${escapeHtml(p.image)}" alt="${escapeHtml(tr.name)}"><span class="stockBadge ${soldOut?'out':''}">${escapeHtml(stockText(p))}</span>${p.bestseller?'<span style="position:absolute;top:12px;left:12px;background:#111;color:#fff;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:1px;z-index:2">⭐ BÄSTSÄLJARE</span>':''}
       <button class="quick" onclick="showProduct('${escapeHtml(p.id)}')">${escapeHtml(t('details'))}</button></div>
       <div class="cardBody"><small>${escapeHtml(tr.brand)} · ${escapeHtml(tr.category)}</small><h3>${escapeHtml(tr.name)}</h3>
       <p>${escapeHtml(tr.notes.join(' · '))}</p><div class="cardFoot"><strong>${escapeHtml(t('from'))} ${price} kr</strong>
