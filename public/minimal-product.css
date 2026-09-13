@@ -1,0 +1,19 @@
+/* Minimal luxury product view */
+.productModal{width:min(1280px,94vw)!important;max-height:88vh!important;grid-template-columns:1.08fr .92fr!important;border-radius:0!important;background:#fff!important;box-shadow:0 30px 80px rgba(0,0,0,.14)!important}
+.overlay{background:rgba(255,255,255,.72)!important;backdrop-filter:blur(8px)!important;padding:32px!important}
+.productModal>img{height:78vh!important;max-height:78vh!important;min-height:620px!important;object-fit:contain!important;background:#f7f7f5!important;padding:28px!important}
+.modalInfo{padding:70px 64px!important;background:#fff!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+.modalInfo>small{font-size:10px!important;letter-spacing:4px!important;color:#777!important;text-transform:uppercase!important}
+.modalInfo h2{font:400 clamp(42px,4vw,64px) Georgia,serif!important;letter-spacing:-2.5px!important;margin:14px 0 22px!important;color:#111!important}
+.modalInfo p{font-size:15px!important;line-height:1.85!important;color:#555!important;max-width:560px!important;margin:0 0 24px!important}
+.modalInfo .notes{border:0!important;padding:0!important;border-radius:0!important;color:#222!important;font-size:11px!important;letter-spacing:1px!important;text-transform:uppercase!important;line-height:1.8!important}
+.modalInfo h4{margin:28px 0 12px!important;font-size:10px!important;letter-spacing:3px!important;font-weight:700!important;text-transform:uppercase!important}
+.sizes{gap:12px!important}
+.size{border:1px solid #ddd!important;background:#fff!important;border-radius:999px!important;min-height:58px!important;padding:10px 18px!important}
+.size.active{background:#111!important;color:#fff!important;border-color:#111!important}
+.size small{display:none!important}
+.modalPrice{font-size:30px!important;font-weight:500!important;margin:26px 0 20px!important;color:#111!important}
+.modalInfo .btn{min-height:58px!important;border-radius:999px!important;font-size:14px!important;letter-spacing:.2px!important}
+.modalClose{position:absolute!important;right:22px!important;top:18px!important;z-index:5!important;width:42px!important;height:42px!important;border-radius:50%!important;background:#fff!important;font-size:26px!important;line-height:1!important;box-shadow:0 5px 20px rgba(0,0,0,.08)!important}
+.cardDescription{display:block!important;visibility:visible!important;opacity:1!important;color:#666!important;min-height:48px!important;margin:8px 0 16px!important;line-height:1.65!important}
+@media(max-width:850px){.productModal{grid-template-columns:1fr!important;max-height:92vh!important;overflow-y:auto!important}.productModal>img{height:42vh!important;min-height:300px!important;max-height:42vh!important;padding:18px!important}.modalInfo{padding:34px 26px 30px!important}.modalInfo h2{font-size:40px!important}.overlay{padding:12px!important}}
