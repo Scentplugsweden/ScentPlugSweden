@@ -6,7 +6,7 @@
     "oud":{"name":"Oud Wood","brand":"Tom Ford","description":"Mörk, varm och exklusiv med en mjuk träig karaktär.","notes":["Oud","Kardemumma","Sandelträ"]},
     "aventus":{"name":"Aventus","brand":"Creed","description":"Fruktig och träig med ananas, björk och ekmossa.","notes":["Ananas","Björk","Ekmossa"]},
     "acqua":{"name":"Acqua di Giò","brand":"Giorgio Armani","description":"Ljus, fräsch och marin — perfekt för varmare dagar.","notes":["Bergamott","Marina noter","Ceder"]},
-    "rogue-velvet-beast":{"name":"Rogue Velvet Beast","brand":"Rogue Borough","description":"En intensiv och förförisk doft med en mörk, varm och sofistikerad karaktär. Djupa träiga toner möter sensuell amber och en mjuk sötma, vilket skapar en kraftfull doft med en lyxig och mystisk känsla.","notes":["Mörka körsbär","Bergamott","Ros","Jasmin","Viol","Vanilj","Cederträ","Ambra","Mjuk mysk"]}
+    "rogue-velvet-beast":{"name":"Rogue Velvet Beast","brand":"Rogue Borough","description":"En intensiv och förförisk doft med en mörk, varm och sofistikerad karaktär. Djupa träiga toner möter sensuell amber och en mjuk sötma, vilket skapar en kraftfull doft med en lyxig och mystisk känsla. Perfekt för kvällar, kalla dagar och när du vill lämna ett starkt intryck. Inspirerad av Parfums de Marly.","notes":["Toppnoter: Mörka körsbär · Bergamott","Hjärtnoter: Ros · Jasmin · Viol","Basnoter: Vanilj · Cederträ · Ambra · Mjuk musk"]}
   },
   "en": {
     "sauvage":{"name":"Dior Sauvage","brand":"Dior","description":"Fresh, spicy and woody with bergamot and ambroxan.","notes":["Bergamot","Pepper","Ambroxan"]},
@@ -15,7 +15,7 @@
     "oud":{"name":"Oud Wood","brand":"Tom Ford","description":"Dark, warm and luxurious with a smooth woody character.","notes":["Oud","Cardamom","Sandalwood"]},
     "aventus":{"name":"Aventus","brand":"Creed","description":"Fruity and woody with pineapple, birch and oakmoss.","notes":["Pineapple","Birch","Oakmoss"]},
     "acqua":{"name":"Acqua di Giò","brand":"Giorgio Armani","description":"Bright, fresh and marine — perfect for warmer days.","notes":["Bergamot","Marine notes","Cedar"]},
-    "rogue-velvet-beast":{"name":"Rogue Velvet Beast","brand":"Rogue Borough","description":"An intense and seductive fragrance with a dark, warm and sophisticated character. Deep woody notes meet sensual amber and a soft sweetness, creating a powerful scent with a luxurious and mysterious feel. Perfect for evenings, cold days, and whenever you want to leave a strong impression.","notes":["Dark cherry","Bergamot","Rose","Jasmine","Violet","Vanilla","Cedarwood","Amber","Soft musk"]}
+    "rogue-velvet-beast":{"name":"Rogue Velvet Beast","brand":"Rogue Borough","description":"An intense and seductive fragrance with a dark, warm and sophisticated character. Deep woody notes meet sensual amber and a soft sweetness, creating a powerful scent with a luxurious and mysterious feel. Perfect for evenings, cold days, and whenever you want to leave a strong impression. Inspired by Parfums de Marly.","notes":["Top notes: Dark cherry · Bergamot","Heart notes: Rose · Jasmine · Violet","Base notes: Vanilla · Cedarwood · Amber · Soft musk"]}
   },
   "de": {
     "sauvage":{"name":"Dior Sauvage","brand":"Dior","description":"Frisch, würzig und holzig mit Bergamotte und Ambroxan.","notes":["Bergamotte","Pfeffer","Ambroxan"]},
