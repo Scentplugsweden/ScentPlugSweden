@@ -11,6 +11,8 @@ const STRIPE_WEBHOOK_SECRET=process.env.STRIPE_WEBHOOK_SECRET||'';
 const stripe=STRIPE_SECRET_KEY?Stripe(STRIPE_SECRET_KEY):null;
 const sessions=new Map();
 const pool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}}):null;
+const TRANSLATION_PREFIX='__SP_TRANSLATIONS__:';
+const TRANSLATION_LANGS=['en','de','fr'];
 
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function writeJson(file,data){fs.writeFileSync(file,JSON.stringify(data,null,2))}
@@ -150,6 +152,45 @@ async function buildSafeOrder(body){
 }
 function absoluteUrl(req,pathPart){return `${BASE_URL}${pathPart}`}
 
+async function translateText(text,target){
+  const value=String(text??'').trim();
+  if(!value)return '';
+  const url=`https://translate.googleapis.com/translate_a/single?client=gtx&sl=sv&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(value)}`;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const r=await fetch(url,{signal:controller.signal,headers:{'User-Agent':'ScentPlugSweden/1.0'}});
+    if(!r.ok)throw new Error(`Translation HTTP ${r.status}`);
+    const data=await r.json();
+    const translated=Array.isArray(data?.[0])?data[0].map(x=>x?.[0]||'').join(''):'';
+    return translated.trim()||value;
+  }catch(err){
+    console.error(`Translation ${target} failed:`,err.message);
+    return value;
+  }finally{clearTimeout(timer)}
+}
+async function buildAutomaticTranslations(p){
+  const base={name:p.name||'',brand:p.brand||'',category:p.category||'',description:p.description||'',notes:Array.isArray(p.notes)?p.notes.filter(n=>!String(n).startsWith(TRANSLATION_PREFIX)).map(String):[]};
+  const translations={sv:base};
+  for(const lang of TRANSLATION_LANGS){
+    const notes=[];
+    for(const note of base.notes)notes.push(await translateText(note,lang));
+    translations[lang]={
+      name:await translateText(base.name,lang),
+      brand:base.brand,
+      category:await translateText(base.category,lang),
+      description:await translateText(base.description,lang),
+      notes
+    };
+  }
+  return translations;
+}
+function setProductTranslations(p,translations){
+  const clean=Array.isArray(p.notes)?p.notes.filter(n=>!String(n).startsWith(TRANSLATION_PREFIX)).map(String):[];
+  p.notes=[...clean,TRANSLATION_PREFIX+encodeURIComponent(JSON.stringify(translations))];
+  return p;
+}
+
 app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)=>{
   if(!stripe||!STRIPE_WEBHOOK_SECRET)return res.status(503).send('Stripe webhook is not configured.');
   let event;
@@ -196,6 +237,7 @@ app.post('/api/admin/products',auth,async(req,res)=>{
   if(!Object.keys(sizes).length)return res.status(400).json({error:'Minst en storlek krävs.'});
   const stock={};for(const s of Object.keys(sizes))stock[s]=Math.max(0,Number.isInteger(Number(body.stock?.[s]))?Number(body.stock[s]):50);
   const p={id,name:String(body.name).trim(),brand:String(body.brand).trim(),category:String(body.category).trim(),description:String(body.description).trim(),notes:Array.isArray(body.notes)?body.notes.map(String):[],sizes,stock,image:String(body.image).trim(),bestseller:body.bestseller===true};
+  const translations=await buildAutomaticTranslations(p);setProductTranslations(p,translations);
   await saveProduct(p);res.json({ok:true,product:p});
 });
 app.patch('/api/admin/products/:id',auth,async(req,res)=>{
@@ -205,6 +247,7 @@ app.patch('/api/admin/products/:id',auth,async(req,res)=>{
   if(b.bestseller!==undefined)p.bestseller=b.bestseller===true;
   if(b.sizes!==undefined){if(!b.sizes||typeof b.sizes!=='object')return res.status(400).json({error:'Ogiltiga storlekar.'});const sizes={};for(const [s,v] of Object.entries(b.sizes)){const n=Number(v);if(!s||!Number.isFinite(n)||n<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=n}p.sizes=sizes;p.stock=p.stock||{};for(const s of Object.keys(sizes))if(!Number.isInteger(p.stock[s]))p.stock[s]=50;for(const s of Object.keys(p.stock))if(!Object.prototype.hasOwnProperty.call(sizes,s))delete p.stock[s]}
   if(b.stock!==undefined){if(!b.stock||typeof b.stock!=='object')return res.status(400).json({error:'Ogiltigt lager.'});for(const s of Object.keys(p.sizes||{})){const n=Number(b.stock[s]);if(!Number.isInteger(n)||n<0||n>100000)return res.status(400).json({error:'Lager måste vara ett heltal 0–100000.'});p.stock[s]=n}}
+  const translations=await buildAutomaticTranslations(p);setProductTranslations(p,translations);
   await saveProduct(p);res.json({ok:true,product:p});
 });
 app.delete('/api/admin/products/:id',auth,async(req,res)=>{if(!await getProduct(req.params.id))return res.status(404).json({error:'Product not found'});await deleteProduct(req.params.id);res.json({ok:true})});
