@@ -1,171 +1,34 @@
 {
-  "sv": {},
+  "sv": {
+    "sauvage":{"name":"Dior Sauvage","brand":"Dior","description":"Fräsch, kryddig och träig med bergamott och ambroxan.","notes":["Bergamott","Peppar","Ambroxan"]},
+    "bleu":{"name":"Bleu de Chanel","brand":"Chanel","description":"Elegant och ren med citrus, cederträ och sandelträ.","notes":["Citrus","Cederträ","Sandelträ"]},
+    "ysly":{"name":"Y Eau de Parfum","brand":"Yves Saint Laurent","description":"Modern, fräsch och lätt söt med en varm avslutning.","notes":["Äpple","Salvia","Tonkaböna"]},
+    "oud":{"name":"Oud Wood","brand":"Tom Ford","description":"Mörk, varm och exklusiv med en mjuk träig karaktär.","notes":["Oud","Kardemumma","Sandelträ"]},
+    "aventus":{"name":"Aventus","brand":"Creed","description":"Fruktig och träig med ananas, björk och ekmossa.","notes":["Ananas","Björk","Ekmossa"]},
+    "acqua":{"name":"Acqua di Giò","brand":"Giorgio Armani","description":"Ljus, fräsch och marin — perfekt för varmare dagar.","notes":["Bergamott","Marina noter","Ceder"]}
+  },
   "en": {
-    "sauvage": {
-      "name": "Dior Sauvage",
-      "description": "Fresh, spicy and woody with bergamot and ambroxan.",
-      "notes": [
-        "Bergamot",
-        "Pepper",
-        "Ambroxan"
-      ]
-    },
-    "bleu": {
-      "name": "Bleu de Chanel",
-      "description": "Elegant and clean with citrus, cedar and sandalwood.",
-      "notes": [
-        "Citrus",
-        "Cedar",
-        "Sandalwood"
-      ]
-    },
-    "ysly": {
-      "name": "Y Eau de Parfum",
-      "description": "Modern, fresh and lightly sweet with a warm finish.",
-      "notes": [
-        "Apple",
-        "Sage",
-        "Tonka bean"
-      ]
-    },
-    "oud": {
-      "name": "Oud Wood",
-      "description": "Dark, warm and luxurious with a smooth woody character.",
-      "notes": [
-        "Oud",
-        "Cardamom",
-        "Sandalwood"
-      ]
-    },
-    "aventus": {
-      "name": "Aventus",
-      "description": "Fruity and woody with pineapple, birch and oakmoss.",
-      "notes": [
-        "Pineapple",
-        "Birch",
-        "Oakmoss"
-      ]
-    },
-    "acqua": {
-      "name": "Acqua di Giò",
-      "description": "Bright, fresh and marine — perfect for warmer days.",
-      "notes": [
-        "Bergamot",
-        "Marine notes",
-        "Cedar"
-      ]
-    }
+    "sauvage":{"name":"Dior Sauvage","brand":"Dior","description":"Fresh, spicy and woody with bergamot and ambroxan.","notes":["Bergamot","Pepper","Ambroxan"]},
+    "bleu":{"name":"Bleu de Chanel","brand":"Chanel","description":"Elegant and clean with citrus, cedar and sandalwood.","notes":["Citrus","Cedar","Sandalwood"]},
+    "ysly":{"name":"Y Eau de Parfum","brand":"Yves Saint Laurent","description":"Modern, fresh and lightly sweet with a warm finish.","notes":["Apple","Sage","Tonka bean"]},
+    "oud":{"name":"Oud Wood","brand":"Tom Ford","description":"Dark, warm and luxurious with a smooth woody character.","notes":["Oud","Cardamom","Sandalwood"]},
+    "aventus":{"name":"Aventus","brand":"Creed","description":"Fruity and woody with pineapple, birch and oakmoss.","notes":["Pineapple","Birch","Oakmoss"]},
+    "acqua":{"name":"Acqua di Giò","brand":"Giorgio Armani","description":"Bright, fresh and marine — perfect for warmer days.","notes":["Bergamot","Marine notes","Cedar"]}
   },
   "de": {
-    "sauvage": {
-      "name": "Dior Sauvage",
-      "description": "Frisch, würzig und holzig mit Bergamotte und Ambroxan.",
-      "notes": [
-        "Bergamotte",
-        "Pfeffer",
-        "Ambroxan"
-      ]
-    },
-    "bleu": {
-      "name": "Bleu de Chanel",
-      "description": "Elegant und sauber mit Zitrus, Zedernholz und Sandelholz.",
-      "notes": [
-        "Zitrus",
-        "Zedernholz",
-        "Sandelholz"
-      ]
-    },
-    "ysly": {
-      "name": "Y Eau de Parfum",
-      "description": "Modern, frisch und leicht süß mit warmem Ausklang.",
-      "notes": [
-        "Apfel",
-        "Salbei",
-        "Tonkabohne"
-      ]
-    },
-    "oud": {
-      "name": "Oud Wood",
-      "description": "Dunkel, warm und luxuriös mit weichem Holzcharakter.",
-      "notes": [
-        "Oud",
-        "Kardamom",
-        "Sandelholz"
-      ]
-    },
-    "aventus": {
-      "name": "Aventus",
-      "description": "Fruchtig und holzig mit Ananas, Birke und Eichenmoos.",
-      "notes": [
-        "Ananas",
-        "Birke",
-        "Eichenmoos"
-      ]
-    },
-    "acqua": {
-      "name": "Acqua di Giò",
-      "description": "Hell, frisch und maritim — ideal für warme Tage.",
-      "notes": [
-        "Bergamotte",
-        "Maritime Noten",
-        "Zeder"
-      ]
-    }
+    "sauvage":{"name":"Dior Sauvage","brand":"Dior","description":"Frisch, würzig und holzig mit Bergamotte und Ambroxan.","notes":["Bergamotte","Pfeffer","Ambroxan"]},
+    "bleu":{"name":"Bleu de Chanel","brand":"Chanel","description":"Elegant und klar mit Zitrus, Zedernholz und Sandelholz.","notes":["Zitrus","Zedernholz","Sandelholz"]},
+    "ysly":{"name":"Y Eau de Parfum","brand":"Yves Saint Laurent","description":"Modern, frisch und leicht süß mit einem warmen Ausklang.","notes":["Apfel","Salbei","Tonkabohne"]},
+    "oud":{"name":"Oud Wood","brand":"Tom Ford","description":"Dunkel, warm und luxuriös mit einem weichen holzigen Charakter.","notes":["Oud","Kardamom","Sandelholz"]},
+    "aventus":{"name":"Aventus","brand":"Creed","description":"Fruchtig und holzig mit Ananas, Birke und Eichenmoos.","notes":["Ananas","Birke","Eichenmoos"]},
+    "acqua":{"name":"Acqua di Giò","brand":"Giorgio Armani","description":"Hell, frisch und maritim — ideal für warme Tage.","notes":["Bergamotte","Maritime Noten","Zeder"]}
   },
   "fr": {
-    "sauvage": {
-      "name": "Dior Sauvage",
-      "description": "Frais, épicé et boisé avec bergamote et ambroxan.",
-      "notes": [
-        "Bergamote",
-        "Poivre",
-        "Ambroxan"
-      ]
-    },
-    "bleu": {
-      "name": "Bleu de Chanel",
-      "description": "Élégant et propre avec agrumes, cèdre et santal.",
-      "notes": [
-        "Agrumes",
-        "Cèdre",
-        "Santal"
-      ]
-    },
-    "ysly": {
-      "name": "Y Eau de Parfum",
-      "description": "Moderne, frais et légèrement sucré avec une finition chaleureuse.",
-      "notes": [
-        "Pomme",
-        "Sauge",
-        "Fève tonka"
-      ]
-    },
-    "oud": {
-      "name": "Oud Wood",
-      "description": "Sombre, chaud et luxueux avec un caractère boisé doux.",
-      "notes": [
-        "Oud",
-        "Cardamome",
-        "Santal"
-      ]
-    },
-    "aventus": {
-      "name": "Aventus",
-      "description": "Fruité et boisé avec ananas, bouleau et mousse de chêne.",
-      "notes": [
-        "Ananas",
-        "Bouleau",
-        "Mousse de chêne"
-      ]
-    },
-    "acqua": {
-      "name": "Acqua di Giò",
-      "description": "Lumineux, frais et marin — parfait pour les journées chaudes.",
-      "notes": [
-        "Bergamote",
-        "Notes marines",
-        "Cèdre"
-      ]
-    }
+    "sauvage":{"name":"Dior Sauvage","brand":"Dior","description":"Frais, épicé et boisé avec bergamote et ambroxan.","notes":["Bergamote","Poivre","Ambroxan"]},
+    "bleu":{"name":"Bleu de Chanel","brand":"Chanel","description":"Élégant et frais avec des agrumes, du cèdre et du santal.","notes":["Agrumes","Cèdre","Santal"]},
+    "ysly":{"name":"Y Eau de Parfum","brand":"Yves Saint Laurent","description":"Moderne, frais et légèrement sucré avec une finition chaleureuse.","notes":["Pomme","Sauge","Fève tonka"]},
+    "oud":{"name":"Oud Wood","brand":"Tom Ford","description":"Sombre, chaud et luxueux avec un caractère boisé doux.","notes":["Oud","Cardamome","Santal"]},
+    "aventus":{"name":"Aventus","brand":"Creed","description":"Fruité et boisé avec ananas, bouleau et mousse de chêne.","notes":["Ananas","Bouleau","Mousse de chêne"]},
+    "acqua":{"name":"Acqua di Giò","brand":"Giorgio Armani","description":"Lumineux, frais et marin — parfait pour les journées chaudes.","notes":["Bergamote","Notes marines","Cèdre"]}
   }
 }
