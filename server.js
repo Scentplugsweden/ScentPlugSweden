@@ -100,7 +100,7 @@ async function reserveStock(safe){
       for(const x of safe){
         const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);
         const p=r.rows[0]?.data;
-        if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error(`${x.name} (${x.size}) Ã¤r slut i lager.`);
+        if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error(`${x.name} (${x.size}) är slut i lager.`);
         p.stock[x.size]-=x.qty;
         await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p]);
       }
@@ -139,20 +139,20 @@ function auth(req,res,next){
 function publicOrder(o){return {id:o.id,createdAt:o.createdAt,status:o.status,paymentStatus:o.paymentStatus||'unpaid',shippingMethod:o.shippingMethod,trackingNumber:o.trackingNumber||'',items:o.items.map(i=>({name:i.name,size:i.size,qty:i.qty})),subtotal:o.subtotal,shippingCost:o.shippingCost,total:o.total}}
 function slugId(){return 'SP-'+crypto.randomBytes(4).toString('hex').toUpperCase()}
 function validateCustomer(customer){
-  if(!customer?.name||!customer?.email||!customer?.address||!customer?.city||!customer?.postalCode)return 'Fyll i alla obligatoriska fÃ¤lt.';
+  if(!customer?.name||!customer?.email||!customer?.address||!customer?.city||!customer?.postalCode)return 'Fyll i alla obligatoriska fält.';
   if(!/^\S+@\S+\.\S+$/.test(String(customer.email).trim()))return 'Ange en giltig e-postadress.';
   return null;
 }
 async function buildSafeOrder(body){
   const {customer,items,shipping}=body||{},customerError=validateCustomer(customer);
   if(customerError)return {error:customerError};
-  if(!Array.isArray(items)||!items.length)return {error:'Varukorgen Ã¤r tom.'};
-  if(shipping?.method!=='PostNord')return {error:'VÃ¤lj PostNord som leveransalternativ.'};
+  if(!Array.isArray(items)||!items.length)return {error:'Varukorgen är tom.'};
+  if(shipping?.method!=='PostNord')return {error:'Välj PostNord som leveransalternativ.'};
   const catalog=await getProducts(),safe=[];
   for(const item of items){
     const p=catalog.find(x=>x.id===item.id),price=p?.sizes?.[item.size],qty=Number(item.qty),stock=Number(p?.stock?.[item.size]??0);
-    if(!p||price===undefined||!Number.isFinite(Number(price))||!Number.isInteger(qty)||qty<1||qty>99)return {error:'En produkt i ordern Ã¤r ogiltig.'};
-    if(stock<qty)return {error:`${p.name} (${item.size}) Ã¤r slut i lager.`};
+    if(!p||price===undefined||!Number.isFinite(Number(price))||!Number.isInteger(qty)||qty<1||qty>99)return {error:'En produkt i ordern är ogiltig.'};
+    if(stock<qty)return {error:`${p.name} (${item.size}) är slut i lager.`};
     safe.push({id:p.id,name:p.name,brand:p.brand,size:item.size,price:Number(price),qty});
   }
   const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingCost=subtotal>=399?0:49,total=subtotal+shippingCost;
@@ -208,10 +208,10 @@ app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)
     if(event.type==='checkout.session.completed'){
       const session=event.data.object,orderId=session.metadata?.orderId;
       const order=orderId?await getOrder(orderId):null;
-      if(order){order.stripeSessionId=session.id;order.paymentStatus=session.payment_status||'paid';if(session.payment_status==='paid'&&order.status==='Betalning vÃ¤ntar')order.status='Betald';order.paidAt=order.paidAt||new Date().toISOString();await saveOrder(order)}
+      if(order){order.stripeSessionId=session.id;order.paymentStatus=session.payment_status||'paid';if(session.payment_status==='paid'&&order.status==='Betalning väntar')order.status='Betald';order.paidAt=order.paidAt||new Date().toISOString();await saveOrder(order)}
     }else if(event.type==='checkout.session.expired'){
       const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;
-      if(order&&order.status==='Betalning vÃ¤ntar'&&!order.stockReleasedAt){await releaseStock(order);order.status='Avbruten';order.paymentStatus='expired';order.stockReleasedAt=new Date().toISOString();await saveOrder(order)}
+      if(order&&order.status==='Betalning väntar'&&!order.stockReleasedAt){await releaseStock(order);order.status='Avbruten';order.paymentStatus='expired';order.stockReleasedAt=new Date().toISOString();await saveOrder(order)}
     }
   }catch(err){console.error('Stripe webhook handling error:',err)}
   res.json({received:true});
@@ -225,24 +225,24 @@ app.get('/api/locales/:lang',(req,res)=>{const lang=String(req.params.lang||'sv'
 
 app.post('/api/admin/login',(req,res)=>{
   if(!ADMIN_PASSWORD)return res.status(503).json({error:'Admin is not configured. Set ADMIN_PASSWORD first.'});
-  if(String(req.body?.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Fel lÃ¶senord.'});
+  if(String(req.body?.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Fel lösenord.'});
   const token=crypto.randomBytes(32).toString('hex');sessions.set(token,Date.now()+1000*60*60*12);res.json({token});
 });
 app.post('/api/admin/logout',auth,(req,res)=>{const token=req.headers.authorization.replace(/^Bearer\s+/i,'');sessions.delete(token);res.json({ok:true})});
 app.get('/api/admin/orders',auth,async(req,res)=>res.json(await getOrders()));
 app.patch('/api/admin/orders/:id',auth,async(req,res)=>{
   const order=await getOrder(req.params.id);if(!order)return res.status(404).json({error:'Order not found'});
-  const allowed=['Betalning vÃ¤ntar','Mottagen','Betald','Packas','Skickad','Levererad','Avbruten'],{status,trackingNumber,shippingMethod}=req.body||{};
+  const allowed=['Betalning väntar','Mottagen','Betald','Packas','Skickad','Levererad','Avbruten'],{status,trackingNumber,shippingMethod}=req.body||{};
   if(status!==undefined&&!allowed.includes(status))return res.status(400).json({error:'Ogiltig status.'});
   if(status!==undefined)order.status=status;if(trackingNumber!==undefined)order.trackingNumber=String(trackingNumber).trim().slice(0,120);if(shippingMethod!==undefined)order.shippingMethod=String(shippingMethod).trim().slice(0,80);
   order.updatedAt=new Date().toISOString();await saveOrder(order);res.json({ok:true,order});
 });
 app.post('/api/admin/products',auth,async(req,res)=>{
   const body=req.body||{},id=String(body.id||'').trim();
-  if(!/^[a-z0-9-]{2,40}$/.test(id)||!body.name||!body.brand||!body.category||!body.description||!body.image||!body.sizes||typeof body.sizes!=='object')return res.status(400).json({error:'Fyll i alla produktfÃ¤lt.'});
+  if(!/^[a-z0-9-]{2,40}$/.test(id)||!body.name||!body.brand||!body.category||!body.description||!body.image||!body.sizes||typeof body.sizes!=='object')return res.status(400).json({error:'Fyll i alla produktfält.'});
   if(await getProduct(id))return res.status(409).json({error:'Produkt-ID finns redan.'});
   const sizes={};for(const [s,v] of Object.entries(body.sizes)){const price=Number(v);if(!s||!Number.isFinite(price)||price<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=price}
-  if(!Object.keys(sizes).length)return res.status(400).json({error:'Minst en storlek krÃ¤vs.'});
+  if(!Object.keys(sizes).length)return res.status(400).json({error:'Minst en storlek krävs.'});
   const stock={};for(const s of Object.keys(sizes))stock[s]=Math.max(0,Number.isInteger(Number(body.stock?.[s]))?Number(body.stock[s]):50);
   const p={id,name:String(body.name).trim(),brand:String(body.brand).trim(),category:String(body.category).trim(),description:String(body.description).trim(),notes:Array.isArray(body.notes)?body.notes.map(String):[],sizes,stock,image:String(body.image).trim(),bestseller:body.bestseller===true};
   const translations=await buildAutomaticTranslations(p);setProductTranslations(p,translations);
@@ -261,22 +261,22 @@ app.patch('/api/admin/products/:id',auth,async(req,res)=>{
 app.delete('/api/admin/products/:id',auth,async(req,res)=>{if(!await getProduct(req.params.id))return res.status(404).json({error:'Product not found'});await deleteProduct(req.params.id);res.json({ok:true})});
 
 app.post('/api/orders/checkout',async(req,res)=>{
-  if(!stripe)return res.status(503).json({error:'Stripe Ã¤r inte konfigurerat Ã¤nnu. LÃ¤gg in STRIPE_SECRET_KEY i .env.'});
+  if(!stripe)return res.status(503).json({error:'Stripe är inte konfigurerat ännu. Lägg in STRIPE_SECRET_KEY i .env.'});
   const built=await buildSafeOrder(req.body);if(built.error)return res.status(400).json({error:built.error});
   const {safe,subtotal,shippingCost,total,customer}=built;
-  const order={id:slugId(),createdAt:new Date().toISOString(),status:'Betalning vÃ¤ntar',paymentStatus:'unpaid',shippingMethod:'PostNord',shippingCost,customer,items:safe,subtotal,total};
+  const order={id:slugId(),createdAt:new Date().toISOString(),status:'Betalning väntar',paymentStatus:'unpaid',shippingMethod:'PostNord',shippingCost,customer,items:safe,subtotal,total};
   try{await reserveStock(safe);await saveOrder(order)}catch(err){return res.status(409).json({error:err.message||'Kunde inte reservera lager.'})}
   try{
-    const line_items=safe.map(i=>({price_data:{currency:'sek',product_data:{name:`${i.name} â€” ${i.size}`,metadata:{productId:i.id,size:i.size}},unit_amount:Math.round(i.price*100)},quantity:i.qty}));
-    if(shippingCost>0)line_items.push({price_data:{currency:'sek',product_data:{name:'PostNord â€” leverans'},unit_amount:Math.round(shippingCost*100)},quantity:1});
+    const line_items=safe.map(i=>({price_data:{currency:'sek',product_data:{name:`${i.name} — ${i.size}`,metadata:{productId:i.id,size:i.size}},unit_amount:Math.round(i.price*100)},quantity:i.qty}));
+    if(shippingCost>0)line_items.push({price_data:{currency:'sek',product_data:{name:'PostNord — leverans'},unit_amount:Math.round(shippingCost*100)},quantity:1});
     const session=await stripe.checkout.sessions.create({mode:'payment',line_items,customer_email:customer.email,client_reference_id:order.id,metadata:{orderId:order.id},billing_address_collection:'required',success_url:absoluteUrl(req,`/order/success?id=${encodeURIComponent(order.id)}&email=${encodeURIComponent(customer.email)}`),cancel_url:absoluteUrl(req,'/?checkout=cancelled'),submit_type:'pay'});
     order.stripeSessionId=session.id;await saveOrder(order);res.json({ok:true,url:session.url,order:publicOrder(order)});
   }catch(err){
-    await releaseStock(order);await deleteOrder(order.id);console.error('Stripe checkout error:',err);res.status(502).json({error:'Kunde inte starta betalningen. FÃ¶rsÃ¶k igen.'});
+    await releaseStock(order);await deleteOrder(order.id);console.error('Stripe checkout error:',err);res.status(502).json({error:'Kunde inte starta betalningen. Försök igen.'});
   }
 });
 app.get('/api/orders/:id',async(req,res)=>{
-  const id=String(req.params.id||'').trim().toUpperCase(),email=String(req.query.email||'').trim().toLowerCase();if(!id||!email)return res.status(400).json({error:'Ordernummer och e-post krÃ¤vs.'});
+  const id=String(req.params.id||'').trim().toUpperCase(),email=String(req.query.email||'').trim().toLowerCase();if(!id||!email)return res.status(400).json({error:'Ordernummer och e-post krävs.'});
   const order=await getOrder(id);if(!order||String(order.customer.email).toLowerCase()!==email)return res.status(404).json({error:'Ordern hittades inte. Kontrollera ordernummer och e-post.'});res.json(publicOrder(order));
 });
 app.get('/admin',(req,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
