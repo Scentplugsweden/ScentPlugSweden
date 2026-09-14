@@ -9,7 +9,7 @@ Module._extensions['.js']=function(module,filename){
     let source=fs.readFileSync(filename,'utf8');
     source=source.replace(
       "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingCost=subtotal>=399?0:49,total=subtotal+shippingCost;",
-      "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingWeightGrams=safe.reduce((s,x)=>s+25*x.qty,0),shippingCost=shippingWeightGrams>0?Math.ceil(shippingWeightGrams/50)*22:0,total=subtotal+shippingCost;"
+      "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingWeightGrams=safe.reduce((s,x)=>s+25*x.qty,0),shippingCost=subtotal>=499?0:shippingWeightGrams<=50?22:shippingWeightGrams<=100?44:shippingWeightGrams<=250?61:shippingWeightGrams<=500?88:shippingWeightGrams<=1000?132:154,total=subtotal+shippingCost;"
     );
     return module._compile(source,filename);
   }
