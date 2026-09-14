@@ -15,6 +15,10 @@ Module._extensions['.js']=function(module,filename){
       /async function start\(\)\{try\{await initDb\(\);app\.listen\(PORT,\(\)=>console\.log\(`ScentPlugSweden V7 kör på \$\{BASE_URL\} \(\$\{pool\?'PostgreSQL':'JSON'\}\)`\)\)\}catch\(e\)\{console\.error\('Startup failed:',e\);process\.exit\(1\)\}\}\s*start\(\);/s,
       "function start(){app.listen(PORT,()=>console.log(`ScentPlugSweden V7 kör på ${BASE_URL} (${pool?'PostgreSQL':'JSON'})`));initDb().then(()=>console.log('[DB] PostgreSQL initialization complete')).catch(e=>console.error('[DB] Initialization failed, server remains online:',e.message))}\nstart();"
     );
+    source=source.replace(
+      "async function getProducts(){\n  if(pool)return (await pool.query('SELECT data FROM products ORDER BY id')).rows.map(r=>r.data);\n  return readJson(productsFile,[]);\n}",
+      "async function getProducts(){\n  if(pool){\n    try{\n      const result=await pool.query({text:'SELECT data FROM products ORDER BY id',statement_timeout:5000});\n      const products=result.rows.map(r=>r.data);\n      if(products.length)return products;\n      console.error('[DB] Products query returned 0 rows, falling back to products.json');\n    }catch(e){\n      console.error('[DB] Products query failed, falling back to products.json:',e.message);\n    }\n  }\n  return readJson(productsFile,[]);\n}"
+    );
     return module._compile(source,filename);
   }
   return originalJsLoader(module,filename);
