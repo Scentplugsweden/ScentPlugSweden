@@ -6,12 +6,12 @@
     const form=document.querySelector('#productForm');
     if(!form||document.querySelector('#seasonChoices'))return;
     const wrap=document.createElement('div');wrap.id='seasonChoices';
-    wrap.innerHTML=`<div style="font-weight:700;margin-top:4px">Säsong</div><div class="seasonAdminButtons"><button type="button" class="btn seasonAdminBtn" data-season="winter">${labels.winter}</button><button type="button" class="btn seasonAdminBtn" data-season="summer">${labels.summer}</button></div><small style="color:#777">Välj säsong för parfymen. Klicka igen för att ta bort valet.</small>`;
+    wrap.innerHTML=`<div style="font-weight:700;margin-top:4px">Säsong</div><div style="font-size:13px;color:#777;margin-top:2px">Markera säsong:</div><div class="seasonAdminButtons"><button type="button" class="btn seasonAdminBtn" data-season="winter"><span class="seasonCheck" aria-hidden="true">□</span> ${labels.winter}</button><button type="button" class="btn seasonAdminBtn" data-season="summer"><span class="seasonCheck" aria-hidden="true">□</span> ${labels.summer}</button></div><small style="color:#777">Vald säsong används för butikens Vinter/Sommar-sortering.</small>`;
     form.appendChild(wrap);
     wrap.querySelectorAll('[data-season]').forEach(btn=>btn.addEventListener('click',()=>{selectedSeason=selectedSeason===btn.dataset.season?'':btn.dataset.season;updateUI()}));
     updateUI();
   }
-  function updateUI(){document.querySelectorAll('#seasonChoices [data-season]').forEach(btn=>btn.classList.toggle('active',btn.dataset.season===selectedSeason))}
+  function updateUI(){document.querySelectorAll('#seasonChoices [data-season]').forEach(btn=>{const active=btn.dataset.season===selectedSeason;btn.classList.toggle('active',active);const c=btn.querySelector('.seasonCheck');if(c)c.textContent=active?'✓':'□'})}
   async function loadSeason(id){try{const r=await fetch('/api/products');const ps=await r.json();const p=ps.find(x=>x.id===id);const marker=(p?.notes||[]).find(n=>String(n).startsWith(SEASON_PREFIX));selectedSeason=marker?String(marker).slice(SEASON_PREFIX.length):'';updateUI()}catch{}}
   const originalFetch=window.fetch;
   window.fetch=async function(input,init={}){
