@@ -11,6 +11,10 @@ Module._extensions['.js']=function(module,filename){
       "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingCost=subtotal>=399?0:49,total=subtotal+shippingCost;",
       "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingWeightGrams=safe.reduce((s,x)=>s+25*x.qty,0),shippingCost=subtotal>=499?0:shippingWeightGrams<=50?22:shippingWeightGrams<=100?44:shippingWeightGrams<=250?61:shippingWeightGrams<=500?88:shippingWeightGrams<=1000?132:154,total=subtotal+shippingCost;"
     );
+    source=source.replace(
+      /async function start\(\)\{try\{await initDb\(\);app\.listen\(PORT,\(\)=>console\.log\(`ScentPlugSweden V7 kör på \$\{BASE_URL\} \(\$\{pool\?'PostgreSQL':'JSON'\}\)`\)\)\}catch\(e\)\{console\.error\('Startup failed:',e\);process\.exit\(1\)\}\}\s*start\(\);/s,
+      "function start(){app.listen(PORT,()=>console.log(`ScentPlugSweden V7 kör på ${BASE_URL} (${pool?'PostgreSQL':'JSON'})`));initDb().then(()=>console.log('[DB] PostgreSQL initialization complete')).catch(e=>console.error('[DB] Initialization failed, server remains online:',e.message))}\nstart();"
+    );
     return module._compile(source,filename);
   }
   return originalJsLoader(module,filename);
