@@ -72,9 +72,9 @@
   "orderError": "Kunde inte skicka ordern.",
   "postalCode": "Postnummer",
   "phone": "Telefon (valfritt)",
-  "shipping": "· 22 kr / 50 g · max 250 g: 61 kr · fri frakt över 499 kr",
+  "shipping": "· spårbar 61 kr · ospårbar 39 kr · fri frakt över 499 kr",
   "shipping.method": "PostNord",
-  "shipping.details": "PostNord — 22 kr upp till 50 g · 44 kr upp till 100 g · 61 kr upp till 250 g · fri frakt över 499 kr",
+  "shipping.details": "Spårbar 61 kr · Ospårbar 39 kr · båda med fri frakt över 499 kr",
   "payment.title": "Betalning",
   "payment.details": "Du slutför betalningen säkert via Stripe.",
   "placeholder.name": "Ditt namn",
@@ -106,7 +106,7 @@
   "stock.sold": "Slut",
   "stock.max": "Det finns inte fler i lager.",
   "freeShipping": "Fri frakt",
-  "shippingSummary": "Frakt: {x} kr ({grams} g)",
+  "shippingSummary": "Frakt från 39 kr · fri frakt över 499 kr",
   "openingPayment": "Öppnar betalning…",
   "paymentError": "Kunde inte starta betalningen."
 }
