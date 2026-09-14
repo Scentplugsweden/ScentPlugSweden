@@ -9,7 +9,7 @@ Module._extensions['.js']=function(module,filename){
     let source=fs.readFileSync(filename,'utf8');
     source=source.replace(
       "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingCost=subtotal>=399?0:49,total=subtotal+shippingCost;",
-      "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingWeightGrams=safe.reduce((s,x)=>s+25*x.qty,0),shippingCost=subtotal>=499?0:shippingWeightGrams<=50?22:shippingWeightGrams<=100?44:shippingWeightGrams<=250?61:shippingWeightGrams<=500?88:shippingWeightGrams<=1000?132:154,total=subtotal+shippingCost;"
+      "const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingWeightGrams=safe.reduce((s,x)=>s+25*x.qty,0),country=String(customer.country||'SE').toUpperCase(),euCountries=['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES'],zone=country==='SE'?'SE':euCountries.includes(country)?'EU':'ROW',freeThreshold=zone==='SE'?499:zone==='EU'?999:1499,shippingCost=subtotal>=freeThreshold?0:zone==='SE'?(shippingWeightGrams<=250?61:shippingWeightGrams<=500?89:shippingWeightGrams<=1000?132:154):(zone==='EU'?(shippingWeightGrams<=250?129:shippingWeightGrams<=500?169:shippingWeightGrams<=1000?229:299):(shippingWeightGrams<=250?179:shippingWeightGrams<=500?229:shippingWeightGrams<=1000?319:399)),total=subtotal+shippingCost;",
     );
     return module._compile(source,filename);
   }
