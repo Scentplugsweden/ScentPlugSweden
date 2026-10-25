@@ -19,7 +19,7 @@ function writeJson(file,data){fs.writeFileSync(file,JSON.stringify(data,null,2))
 function normalizeProducts(products){let changed=false;for(const p of products){if(!p.stock||typeof p.stock!=='object'){p.stock={};Object.keys(p.sizes||{}).forEach(s=>p.stock[s]=50);changed=true}else for(const s of Object.keys(p.sizes||{}))if(!Number.isInteger(p.stock[s])){p.stock[s]=50;changed=true}if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}}return {products,changed}}
 async function initDb(){
   console.log('[DB] initDb started');
-  if(!pool){console.log('[DB] No PostgreSQL pool, using JSON');return}
+  if(!pool){console.log('[DB] No PostgreSQL pool, using JSON');const {products,changed}=normalizeProducts(readJson(productsFile,[]));if(changed)writeJson(productsFile,products);return}
   await pool.query(`CREATE TABLE IF NOT EXISTS products (id text PRIMARY KEY, data jsonb NOT NULL);CREATE TABLE IF NOT EXISTS orders (id text PRIMARY KEY, data jsonb NOT NULL);`);
   const count=(await pool.query('SELECT COUNT(*)::int AS n FROM products')).rows[0].n;
   if(count===0){
