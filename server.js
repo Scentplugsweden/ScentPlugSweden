@@ -24,9 +24,22 @@ async function initDb(){
   const count=(await pool.query('SELECT COUNT(*)::int AS n FROM products')).rows[0].n;
   if(count===0){
     const {products,changed}=normalizeProducts(readJson(productsFile,[]));
-    await pool.query('BEGIN');
-    try{for(const p of products)await pool.query('INSERT INTO products(id,data) VALUES($1,$2)',[p.id,p]);await pool.query('COMMIT');if(changed)writeJson(productsFile,products)}
-    catch(e){await pool.query('ROLLBACK');throw e}
+    const client=await pool.connect();
+    try{await client.query('BEGIN');for(const p of products)await client.query('INSERT INTO products(id,data) VALUES($1,$2)',[p.id,p]);await client.query('COMMIT');if(changed)writeJson(productsFile,products)}
+    catch(e){await client.query('ROLLBACK');throw e}
+    finally{client.release()}
+  }
+  // Migrate existing database rows too: older products may not have stock fields.
+  const storedProducts=(await pool.query('SELECT id,data FROM products')).rows;
+  for(const row of storedProducts){
+    const product=row.data||{};
+    let changed=false;
+    if(!product.stock||typeof product.stock!=='object'||Array.isArray(product.stock)){product.stock={};changed=true}
+    for(const size of Object.keys(product.sizes||{})){
+      if(!Number.isInteger(product.stock[size])||product.stock[size]<0){product.stock[size]=50;changed=true}
+    }
+    if(typeof product.bestseller!=='boolean'){product.bestseller=false;changed=true}
+    if(changed)await pool.query('UPDATE products SET data=$2 WHERE id=$1',[row.id,product]);
   }
   // Ensure the hidden campaign reward exists even in an already-populated database.
   const mystery=readJson(productsFile,[]).find(p=>p.id==='mystery-sample');
@@ -34,9 +47,10 @@ async function initDb(){
   const ocount=(await pool.query('SELECT COUNT(*)::int AS n FROM orders')).rows[0].n;
   if(ocount===0){
     const orders=readJson(ordersFile,[]);
-    await pool.query('BEGIN');
-    try{for(const o of orders)await pool.query('INSERT INTO orders(id,data) VALUES($1,$2)',[o.id,o]);await pool.query('COMMIT')}
-    catch(e){await pool.query('ROLLBACK');throw e}
+    const client=await pool.connect();
+    try{await client.query('BEGIN');for(const o of orders)await client.query('INSERT INTO orders(id,data) VALUES($1,$2)',[o.id,o]);await client.query('COMMIT')}
+    catch(e){await client.query('ROLLBACK');throw e}
+    finally{client.release()}
   }
 }
 
