@@ -1,0 +1,74 @@
+/* ScentPlugSweden storefront redesign — editorial fragrance boutique */
+:root{--sp-ink:#241216;--sp-wine:#6d1f31;--sp-rose:#ead9d5;--sp-paper:#f8f4ef;--sp-muted:#786c69;--sp-line:#e5d9d4}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{background:var(--sp-paper);color:var(--sp-ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.announcement{background:var(--sp-wine);color:#fff;padding:11px 18px;font-size:10px;letter-spacing:2px}
+.announcement:before{color:#eac9c4}
+header{height:82px;background:rgba(248,244,239,.94);border-bottom:1px solid var(--sp-line);padding:0 clamp(18px,6vw,88px)}
+.logo{color:var(--sp-ink);letter-spacing:-.6px}
+.logo span{color:var(--sp-wine)}
+nav{gap:clamp(12px,2vw,28px)}nav a{color:#655457;font-size:11px;letter-spacing:.6px}nav a:hover{color:var(--sp-wine)}
+.language{border-color:var(--sp-line);background:#fff}
+.language select{background:transparent;border:0;color:var(--sp-ink);font-weight:800;padding:5px;outline:none}
+.cartBtn{background:var(--sp-wine);border-color:var(--sp-wine);box-shadow:0 8px 22px #6d1f311f}.cartBtn:hover{background:#4e1423}
+.hero{min-height:650px;background:#211318;padding:clamp(64px,8vw,110px) clamp(24px,9vw,130px)}
+.hero:before{background:radial-gradient(ellipse at 77% 46%,#8e475344,transparent 38%),linear-gradient(115deg,#211318 0%,#382027 58%,#1b1115 100%)}
+.winterHero:after{opacity:.18;mix-blend-mode:screen}
+.hero h1{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-3.5px;line-height:.96}
+.hero h1 i{color:#e7c9c2;font-style:italic}
+.heroText small,.sectionHead small,.about small,.faq>small,.cartHead small,.modalInfo>small{color:#d6a9a8;letter-spacing:2.5px}
+.heroText>p{color:#e0cfd0;line-height:1.9}
+.hero .btn{background:#f6e9e3;color:#361923;border-color:#f6e9e3}
+.hero .link{color:#f0d7d2}
+.rating{color:#f5e7e0}.stars{color:#e8bca9}
+.campaignAdInner{background:linear-gradient(120deg,#5c1929,#8a3a49);border-radius:4px;box-shadow:0 18px 45px #42172318}
+.campaignCode{border-radius:4px;border-color:#ffffff70}
+.campaignAd .btn{border-radius:3px;background:#f8eee8;color:#4d1726}
+.trust{background:#efe5df;border-top:1px solid #e3d3cc;border-bottom:1px solid #e3d3cc}
+.trust>div{padding:28px 18px}.trust b{color:var(--sp-wine)}.trust strong{color:var(--sp-ink)}
+.shop{padding:clamp(55px,7vw,95px) clamp(18px,6vw,88px)}
+.sectionHead{align-items:flex-start;gap:28px}.sectionHead h2,.about h2,.faq h2{font:500 clamp(36px,4vw,58px)/1.05 Georgia,"Times New Roman",serif;letter-spacing:-1.6px;color:var(--sp-ink)}
+.sectionHead small,.about small,.faq>small{color:var(--sp-wine)}
+#search,.shopControls select,.shopControls input{border:1px solid var(--sp-line);border-radius:3px;background:#fff;color:var(--sp-ink);padding:13px 15px}
+.categoryFilters button,.seasonFilter{border-radius:3px!important;border-color:#ddcbc6!important;background:#fff!important;color:#62464b!important}
+.categoryFilters button.active,.seasonFilter.active{background:var(--sp-wine)!important;border-color:var(--sp-wine)!important;color:#fff!important}
+.clearFilters{color:var(--sp-wine)!important}
+.grid{gap:26px}
+.card{background:#fff;border:1px solid #eadfda;border-radius:3px;box-shadow:0 5px 18px #32161b08;overflow:hidden;transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease}
+.card:hover{transform:translateY(-5px);box-shadow:0 18px 42px #32161b14;border-color:#d8bdb7}
+.cardImg{background:radial-gradient(circle at 50% 42%,#fff,#f0e8e3)!important;height:340px!important}
+.cardImg img{filter:drop-shadow(0 16px 18px #31161a20)!important}
+.card:hover .cardImg img{filter:drop-shadow(0 23px 24px #31161a2b)!important}
+.stockBadge{border-radius:2px!important;background:var(--sp-wine)!important;color:#fff!important;letter-spacing:.4px}
+.stockBadge:not(.out):empty{display:none}
+.bestSellerBadge,.popularBadge{border-radius:2px!important;background:var(--sp-wine)!important;color:#fff!important;letter-spacing:1px}
+.cardBody{padding:21px 21px 23px!important}
+.cardBody>small{color:#94767a;letter-spacing:1px;text-transform:uppercase;font-size:9px}
+.cardBody h3{font:500 25px/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.3px;color:var(--sp-ink);margin:10px 0}
+.cardDescription{color:var(--sp-muted);font-size:12px;line-height:1.7}
+.cardFoot{border-top:1px solid #f0e6e2;padding-top:16px;margin-top:18px}
+.cardFoot strong{font-size:15px;color:var(--sp-ink)}
+.add,.quick{border-radius:3px!important;background:var(--sp-wine)!important;color:#fff!important;border-color:var(--sp-wine)!important;letter-spacing:.3px}
+.add:hover,.quick:hover{background:#4e1423!important}
+.about{background:#efe4df;padding:clamp(60px,8vw,110px) clamp(24px,9vw,130px);gap:8vw}
+.about p,.aboutCards p{color:#705d5c;line-height:1.9}
+.aboutCards article{background:#faf6f2;border:1px solid #e4d2cc;border-radius:3px;padding:25px}
+.aboutCards article>b{color:var(--sp-wine)}
+.aboutCards h3{font:500 23px Georgia,"Times New Roman",serif}
+.faq{padding:clamp(60px,8vw,100px) clamp(24px,9vw,130px)}
+.faq details{border-bottom:1px solid var(--sp-line);padding:20px 0}.faq summary{color:var(--sp-ink);font-weight:700}.faq details p{color:var(--sp-muted);line-height:1.8}
+footer{background:#241216;color:#e9d9d6;padding:54px clamp(22px,6vw,88px);gap:32px}
+footer .logo{color:#fff}footer .logo span{color:#d8a8a6}footer a{color:#d8c0bf}footer a:hover{color:#fff}
+.btn{border-radius:3px;box-shadow:none}.btn:hover{box-shadow:0 12px 24px #32161b20}
+.productModal{border-radius:3px!important;background:#fbf6f1!important;border-color:#eadbd5!important}
+.productModal>img{background:radial-gradient(circle at center,#fff,#efe5df)!important}
+.modalInfo h2{font-family:Georgia,"Times New Roman",serif!important;font-weight:500!important;color:var(--sp-ink)}
+.notes{background:#f1e6e1!important;color:#705d5c;border-radius:3px}
+.size{border-radius:3px!important}.size.active,.size.selected{border-color:var(--sp-wine)!important}
+#modalAdd,.full{border-radius:3px!important;background:var(--sp-wine)!important;color:#fff!important}
+#cart,.checkoutModal{background:var(--sp-paper)!important;color:var(--sp-ink)}
+.cartHead{border-bottom-color:var(--sp-line)!important}.total,.checkoutTotal{border-color:var(--sp-line)!important}
+input,select{accent-color:var(--sp-wine)}
+@media(max-width:800px){header{height:auto;min-height:72px;padding:14px 18px;flex-wrap:wrap;gap:12px}nav{order:3;width:100%;justify-content:space-between;gap:10px;padding-top:5px}nav a{font-size:10px}.hero{min-height:590px;grid-template-columns:1fr;padding:70px 25px}.heroArt{min-height:250px}.hero h1{font-size:clamp(46px,11vw,72px)}.sectionHead{display:block}.sectionHead #filters{margin-top:24px}.cardImg{height:290px!important}.campaignAd{padding:0 14px}.trust{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.announcement{font-size:8px;letter-spacing:1.3px}.logo{font-size:15px}.headerActions{gap:7px}.cartBtn{padding:9px 12px}.hero{padding:60px 22px}.heroCtas{gap:16px;flex-wrap:wrap}.cardImg{height:260px!important}.cardBody{padding:17px!important}.cardBody h3{font-size:22px}.campaignAdInner{padding:22px}.campaignAd .btn{width:100%}footer{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
