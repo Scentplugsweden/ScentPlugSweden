@@ -10,13 +10,50 @@ const STRIPE_SECRET_KEY=process.env.STRIPE_SECRET_KEY||'';
 const STRIPE_WEBHOOK_SECRET=process.env.STRIPE_WEBHOOK_SECRET||'';
 const stripe=STRIPE_SECRET_KEY?Stripe(STRIPE_SECRET_KEY):null;
 const sessions=new Map();
-const pool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}}):null;
+const pool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:5000,query_timeout:10000,idleTimeoutMillis:30000}):null;
+let dbReady=!pool,dbError=null,serverStartedAt=new Date().toISOString();
 const TRANSLATION_PREFIX='__SP_TRANSLATIONS__:';
 const TRANSLATION_LANGS=['en','de','fr'];
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function writeJson(file,data){fs.writeFileSync(file,JSON.stringify(data,null,2))}
 function normalizeProducts(products){let changed=false;for(const p of products){if(!p.stock||typeof p.stock!=='object'){p.stock={};Object.keys(p.sizes||{}).forEach(s=>p.stock[s]=50);changed=true}else for(const s of Object.keys(p.sizes||{}))if(!Number.isInteger(p.stock[s])){p.stock[s]=50;changed=true}if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}}return {products,changed}}
-async function initDb(){console.log('[DB] initDb started');if(!pool){console.log('[DB] No PostgreSQL pool, using JSON');return}console.log('[DB] PostgreSQL pool exists');await pool.query(`CREATE TABLE IF NOT EXISTS products (id text PRIMARY KEY, data jsonb NOT NULL);CREATE TABLE IF NOT EXISTS orders (id text PRIMARY KEY, data jsonb NOT NULL);`);console.log('[DB] Tables checked');const count=(await pool.query('SELECT COUNT(*)::int AS n FROM products')).rows[0].n;console.log('[DB] Products:',count);if(count===0){const {products,changed}=normalizeProducts(readJson(productsFile,[]));await pool.query('BEGIN');try{for(const p of products)await pool.query('INSERT INTO products(id,data) VALUES($1,$2)',[p.id,p]);await pool.query('COMMIT');if(changed)writeJson(productsFile,products)}catch(e){await pool.query('ROLLBACK');throw e}}const ocount=(await pool.query('SELECT COUNT(*)::int AS n FROM orders')).rows[0].n;console.log('[DB] Orders:',ocount);if(ocount===0){const orders=readJson(ordersFile,[]);await pool.query('BEGIN');try{for(const o of orders)await pool.query('INSERT INTO orders(id,data) VALUES($1,$2)',[o.id,o]);await pool.query('COMMIT')}catch(e){await pool.query('ROLLBACK');throw e}}}
+async function initDb(){
+  console.log('[DB] initDb started');
+  if(!pool){console.log('[DB] No PostgreSQL pool, using JSON');const {products,changed}=normalizeProducts(readJson(productsFile,[]));if(changed)writeJson(productsFile,products);return}
+  await pool.query(`CREATE TABLE IF NOT EXISTS products (id text PRIMARY KEY, data jsonb NOT NULL);CREATE TABLE IF NOT EXISTS orders (id text PRIMARY KEY, data jsonb NOT NULL);`);
+  const count=(await pool.query('SELECT COUNT(*)::int AS n FROM products')).rows[0].n;
+  if(count===0){
+    const {products,changed}=normalizeProducts(readJson(productsFile,[]));
+    const client=await pool.connect();
+    try{await client.query('BEGIN');for(const p of products)await client.query('INSERT INTO products(id,data) VALUES($1,$2)',[p.id,p]);await client.query('COMMIT');if(changed)writeJson(productsFile,products)}
+    catch(e){await client.query('ROLLBACK');throw e}
+    finally{client.release()}
+  }
+  // Migrate existing database rows too: older products may not have stock fields.
+  const storedProducts=(await pool.query('SELECT id,data FROM products')).rows;
+  for(const row of storedProducts){
+    const product=row.data||{};
+    let changed=false;
+    if(!product.stock||typeof product.stock!=='object'||Array.isArray(product.stock)){product.stock={};changed=true}
+    for(const size of Object.keys(product.sizes||{})){
+      if(!Number.isInteger(product.stock[size])||product.stock[size]<0){product.stock[size]=50;changed=true}
+    }
+    if(typeof product.bestseller!=='boolean'){product.bestseller=false;changed=true}
+    if(changed)await pool.query('UPDATE products SET data=$2 WHERE id=$1',[row.id,product]);
+  }
+  // Ensure the hidden campaign reward exists even in an already-populated database.
+  const mystery=readJson(productsFile,[]).find(p=>p.id==='mystery-sample');
+  if(mystery)await pool.query('INSERT INTO products(id,data) VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[mystery.id,mystery]);
+  const ocount=(await pool.query('SELECT COUNT(*)::int AS n FROM orders')).rows[0].n;
+  if(ocount===0){
+    const orders=readJson(ordersFile,[]);
+    const client=await pool.connect();
+    try{await client.query('BEGIN');for(const o of orders)await client.query('INSERT INTO orders(id,data) VALUES($1,$2)',[o.id,o]);await client.query('COMMIT')}
+    catch(e){await client.query('ROLLBACK');throw e}
+    finally{client.release()}
+  }
+}
+
 async function getProducts(){if(pool)return (await pool.query('SELECT data FROM products ORDER BY id')).rows.map(r=>r.data);return readJson(productsFile,[])}
 async function getOrders(){if(pool)return (await pool.query("SELECT data FROM orders ORDER BY (data->>'createdAt') DESC")).rows.map(r=>r.data);return readJson(ordersFile,[])}
 async function saveProduct(p){if(pool)await pool.query('INSERT INTO products(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data',[p.id,p]);else{const a=readJson(productsFile,[]),i=a.findIndex(x=>x.id===p.id);if(i>=0)a[i]=p;else a.push(p);writeJson(productsFile,a)}}
@@ -25,35 +62,202 @@ async function saveOrder(o){if(pool)await pool.query('INSERT INTO orders(id,data
 async function deleteOrder(id){if(pool)await pool.query('DELETE FROM orders WHERE id=$1',[id]);else writeJson(ordersFile,readJson(ordersFile,[]).filter(o=>o.id!==id))}
 async function getProduct(id){if(pool){const r=await pool.query('SELECT data FROM products WHERE id=$1',[id]);return r.rows[0]?.data||null}return readJson(productsFile,[]).find(p=>p.id===id)||null}
 async function getOrder(id){if(pool){const r=await pool.query('SELECT data FROM orders WHERE id=$1',[id]);return r.rows[0]?.data||null}return readJson(ordersFile,[]).find(o=>o.id===id)||null}
-async function reserveStock(safe){if(pool){const client=await pool.connect();try{await client.query('BEGIN');for(const x of safe){const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);const p=r.rows[0]?.data;if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error(`${x.name} (${x.size}) är slut i lager.`);p.stock[x.size]-=x.qty;await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p])}await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}else{const catalog=await getProducts();for(const x of safe){const p=catalog.find(p=>p.id===x.id);if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error('Slut i lager');p.stock[x.size]-=x.qty}writeJson(productsFile,catalog)}}
+async function reserveStockAndSaveOrder(order){
+  if(pool){
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      for(const item of order.items){
+        const result=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[item.id]);
+        const product=result.rows[0]?.data;
+        if(!product||Number(product.stock?.[item.size]??0)<item.qty)throw new Error(`${item.name} (${item.size}) är slut i lager.`);
+        product.stock[item.size]-=item.qty;
+        await client.query('UPDATE products SET data=$2 WHERE id=$1',[item.id,product]);
+      }
+      await client.query('INSERT INTO orders(id,data) VALUES($1,$2)',[order.id,order]);
+      await client.query('COMMIT');
+    }catch(err){await client.query('ROLLBACK');throw err}
+    finally{client.release()}
+    return;
+  }
+  const catalog=await getProducts();
+  const original=JSON.parse(JSON.stringify(catalog));
+  for(const item of order.items){
+    const product=catalog.find(p=>p.id===item.id);
+    if(!product||Number(product.stock?.[item.size]??0)<item.qty)throw new Error(`${item.name} (${item.size}) är slut i lager.`);
+    product.stock[item.size]-=item.qty;
+  }
+  writeJson(productsFile,catalog);
+  try{await saveOrder(order)}
+  catch(err){writeJson(productsFile,original);throw err}
+}
+
 async function releaseStock(order){if(pool){const client=await pool.connect();try{await client.query('BEGIN');for(const x of order.items){const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);const p=r.rows[0]?.data;if(!p)continue;p.stock=p.stock||{};p.stock[x.size]=Number(p.stock[x.size]||0)+Number(x.qty||0);await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p])}await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}else{const catalog=await getProducts();for(const x of order.items){const p=catalog.find(p=>p.id===x.id);if(!p)continue;p.stock=p.stock||{};p.stock[x.size]=Number(p.stock[x.size]||0)+Number(x.qty||0)}writeJson(productsFile,catalog)}}
+
+async function releasePendingOrderStock(orderId,paymentStatus){
+  if(pool){
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      const found=await client.query('SELECT data FROM orders WHERE id=$1 FOR UPDATE',[orderId]);
+      const order=found.rows[0]?.data;
+      if(!order||order.status!=='Betalning väntar'||order.stockReleasedAt){await client.query('COMMIT');return}
+      for(const item of order.items||[]){
+        const result=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[item.id]);
+        const product=result.rows[0]?.data;
+        if(!product)continue;
+        product.stock=product.stock||{};
+        product.stock[item.size]=Number(product.stock[item.size]||0)+Number(item.qty||0);
+        await client.query('UPDATE products SET data=$2 WHERE id=$1',[item.id,product]);
+      }
+      order.status='Avbruten';
+      order.paymentStatus=paymentStatus;
+      order.stockReleasedAt=new Date().toISOString();
+      await client.query('UPDATE orders SET data=$2 WHERE id=$1',[orderId,order]);
+      await client.query('COMMIT');
+    }catch(err){await client.query('ROLLBACK');throw err}
+    finally{client.release()}
+    return;
+  }
+  const order=await getOrder(orderId);
+  if(!order||order.status!=='Betalning väntar'||order.stockReleasedAt)return;
+  await releaseStock(order);
+  order.status='Avbruten';
+  order.paymentStatus=paymentStatus;
+  order.stockReleasedAt=new Date().toISOString();
+  await saveOrder(order);
+}
+
 function auth(req,res,next){const token=req.headers.authorization?.replace(/^Bearer\s+/i,'');const expiry=sessions.get(token);if(!token||!expiry||expiry<Date.now()){if(token)sessions.delete(token);return res.status(401).json({error:'Unauthorized'})}sessions.set(token,Date.now()+1000*60*60*12);next()}
-function publicOrder(o){return {id:o.id,createdAt:o.createdAt,status:o.status,paymentStatus:o.paymentStatus||'unpaid',shippingMethod:o.shippingMethod,trackingNumber:o.trackingNumber||'',items:o.items.map(i=>({name:i.name,size:i.size,qty:i.qty})),subtotal:o.subtotal,shippingCost:o.shippingCost,total:o.total}}
+function publicOrder(o){return {id:o.id,createdAt:o.createdAt,status:o.status,paymentStatus:o.paymentStatus||'unpaid',shippingMethod:o.shippingMethod,trackingNumber:o.trackingNumber||'',items:o.items.map(i=>({name:i.name,size:i.size,qty:i.qty})),subtotal:o.subtotal,discountAmount:Number(o.discountAmount||0),campaignCode:o.campaignCode||null,shippingCost:o.shippingCost,total:o.total}}
+
 function slugId(){return 'SP-'+crypto.randomBytes(4).toString('hex').toUpperCase()}
 function validateCustomer(customer){if(!customer?.name||!customer?.email||!customer?.address||!customer?.city||!customer?.postalCode)return 'Fyll i alla obligatoriska fält.';if(!/^\S+@\S+\.\S+$/.test(String(customer.email).trim()))return 'Ange en giltig e-postadress.';return null}
-async function buildSafeOrder(body){const {customer,items,shipping}=body||{},customerError=validateCustomer(customer);if(customerError)return {error:customerError};if(!Array.isArray(items)||!items.length)return {error:'Varukorgen är tom.'};const method=String(shipping?.method||'');if(!['PostNord-Tracked','PostNord-Untracked'].includes(method))return {error:'Välj en leveransmetod.'};const catalog=await getProducts(),safe=[];for(const item of items){const p=catalog.find(x=>x.id===item.id),price=p?.sizes?.[item.size],qty=Number(item.qty),stock=Number(p?.stock?.[item.size]??0);if(!p||price===undefined||!Number.isFinite(Number(price))||!Number.isInteger(qty)||qty<1||qty>99)return {error:'En produkt i ordern är ogiltig.'};if(stock<qty)return {error:`${p.name} (${item.size}) är slut i lager.`};safe.push({id:p.id,name:p.name,brand:p.brand,size:item.size,price:Number(price),qty})}const subtotal=safe.reduce((s,x)=>s+x.price*x.qty,0),shippingCost=subtotal>=499?0:(method==='PostNord-Untracked'?39:61),total=subtotal+shippingCost;return {safe,subtotal,shippingCost,total,shippingMethod:method,customer:{name:String(customer.name).trim(),email:String(customer.email).trim(),address:String(customer.address).trim(),postalCode:String(customer.postalCode).trim(),city:String(customer.city).trim(),phone:String(customer.phone||'').trim()}}}
+async function buildSafeOrder(body){
+  const {customer,items,shipping}=body||{};
+  const code=String(body?.promoCode||'').trim().toUpperCase();
+  const customerError=validateCustomer(customer);
+  if(customerError)return {error:customerError};
+  if(!Array.isArray(items)||!items.length)return {error:'Varukorgen är tom.'};
+  if(code&&code!=='VINTER2026')return {error:'Ogiltig kampanjkod.'};
+  const method=String(shipping?.method||'');
+  if(!['PostNord-Tracked','PostNord-Untracked'].includes(method))return {error:'Välj en leveransmetod.'};
+  if(items.some(item=>item?.id==='mystery-sample')&&!code)return {error:'Ogiltig produkt.'};
+  const regularItems=items.filter(item=>item?.id!=='mystery-sample');
+  const regularQty=regularItems.reduce((sum,item)=>sum+Number(item?.qty||0),0);
+  if(code==='VINTER2026'&&regularQty<3)return {error:'Kampanjen kräver minst 3 samples.'};
+  const requestedItems=code==='VINTER2026'?[...regularItems,{id:'mystery-sample',size:'1 ml',qty:1}]:regularItems;
+  const catalog=await getProducts(),safe=[];
+  for(const item of requestedItems){
+    const p=catalog.find(x=>x.id===item.id),price=p?.sizes?.[item.size],qty=Number(item.qty),stock=Number(p?.stock?.[item.size]??0);
+    if(!p||p.hidden&&!(code==='VINTER2026'&&p.id==='mystery-sample')||price===undefined||!Number.isFinite(Number(price))||!Number.isInteger(qty)||qty<1||qty>99)return {error:'En produkt i ordern är ogiltig.'};
+    if(stock<qty)return {error:`${p.name} (${item.size}) är slut i lager.`};
+    safe.push({id:p.id,name:p.name,brand:p.brand,size:item.size,price:Number(price),qty});
+  }
+  const subtotal=safe.reduce((sum,item)=>sum+item.price*item.qty,0);
+  const discountAmount=code==='VINTER2026'?49:0;
+  const merchandiseSubtotal=safe.filter(item=>item.id!=='mystery-sample').reduce((sum,item)=>sum+item.price*item.qty,0);
+  const shippingCost=merchandiseSubtotal>=499?0:(method==='PostNord-Untracked'?39:61);
+  const total=subtotal+shippingCost-discountAmount;
+  return {safe,subtotal,discountAmount,campaignCode:code||null,shippingCost,total,shippingMethod:method,customer:{name:String(customer.name).trim(),email:String(customer.email).trim(),address:String(customer.address).trim(),postalCode:String(customer.postalCode).trim(),city:String(customer.city).trim(),phone:String(customer.phone||'').trim()}};
+}
+
 function absoluteUrl(req,pathPart){return `${BASE_URL}${pathPart}`}
 async function translateText(text,target){const value=String(text??'').trim();if(!value)return '';const url=`https://translate.googleapis.com/translate_a/single?client=gtx&sl=sv&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(value)}`,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{const r=await fetch(url,{signal:controller.signal,headers:{'User-Agent':'ScentPlugSweden/1.0'}});if(!r.ok)throw new Error(`Translation HTTP ${r.status}`);const data=await r.json(),translated=Array.isArray(data?.[0])?data[0].map(x=>x?.[0]||'').join(''):'';return translated.trim()||value}catch(err){console.error(`Translation ${target} failed:`,err.message);return value}finally{clearTimeout(timer)}}
-async function buildAutomaticTranslations(p){const base={name:p.name||'',brand:p.brand||'',category:p.category||'',description:p.description||'',notes:Array.isArray(p.notes)?p.notes.filter(n=>!String(n).startsWith(TRANSLATION_PREFIX)).map(String):[]},translations={sv:base};for(const lang of TRANSLATION_LANGS){const notes=[];for(const note of base.notes)notes.push(await translateText(note,lang));translations[lang]={name:await translateText(base.name,lang),brand:base.brand,category:await translateText(base.category,lang),description:await translateText(base.description,lang),notes}}return translations}
+async function buildAutomaticTranslations(p){
+  const base={name:p.name||'',brand:p.brand||'',category:p.category||'',description:p.description||'',notes:Array.isArray(p.notes)?p.notes.filter(n=>!String(n).startsWith('__SP_')).map(String):[]};
+  const translations={sv:base};
+  for(const lang of TRANSLATION_LANGS){
+    const notes=[];
+    for(const note of base.notes)notes.push(await translateText(note,lang));
+    translations[lang]={name:await translateText(base.name,lang),brand:base.brand,category:await translateText(base.category,lang),description:await translateText(base.description,lang),notes};
+  }
+  return translations;
+}
+
 function setProductTranslations(p,translations){const clean=Array.isArray(p.notes)?p.notes.filter(n=>!String(n).startsWith(TRANSLATION_PREFIX)).map(String):[];p.notes=[...clean,TRANSLATION_PREFIX+encodeURIComponent(JSON.stringify(translations))];return p}
-app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)=>{if(!stripe||!STRIPE_WEBHOOK_SECRET)return res.status(503).send('Stripe webhook is not configured.');let event;try{event=stripe.webhooks.constructEvent(req.body,req.headers['stripe-signature'],STRIPE_WEBHOOK_SECRET)}catch(err){return res.status(400).send(`Webhook Error: ${err.message}`)}try{if(event.type==='checkout.session.completed'){const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;if(order){order.stripeSessionId=session.id;order.paymentStatus=session.payment_status||'paid';if(session.payment_status==='paid'&&order.status==='Betalning väntar')order.status='Betald';order.paidAt=order.paidAt||new Date().toISOString();await saveOrder(order)}}else if(event.type==='checkout.session.expired'){const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;if(order&&order.status==='Betalning väntar'&&!order.stockReleasedAt){await releaseStock(order);order.status='Avbruten';order.paymentStatus='expired';order.stockReleasedAt=new Date().toISOString();await saveOrder(order)}}}catch(err){console.error('Stripe webhook handling error:',err)}res.json({received:true})});
+app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)=>{
+  if(!stripe||!STRIPE_WEBHOOK_SECRET)return res.status(503).send('Stripe webhook is not configured.');
+  let event;
+  try{event=stripe.webhooks.constructEvent(req.body,req.headers['stripe-signature'],STRIPE_WEBHOOK_SECRET)}
+  catch(err){return res.status(400).send(`Webhook Error: ${err.message}`)}
+  try{
+    if(event.type==='checkout.session.completed'||event.type==='checkout.session.async_payment_succeeded'){
+      const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;
+      if(order){
+        order.stripeSessionId=session.id;
+        order.paymentStatus=session.payment_status||'unpaid';
+        if(session.payment_status==='paid'){
+          if(order.status==='Betalning väntar')order.status='Betald';
+          order.paidAt=order.paidAt||new Date().toISOString();
+        }
+        await saveOrder(order);
+      }else if(orderId){
+        console.error('[Stripe webhook] Order not found for session:',session.id);
+        return res.status(500).json({received:false});
+      }
+    }else if(event.type==='checkout.session.expired'||event.type==='checkout.session.async_payment_failed'){
+      const session=event.data.object,orderId=session.metadata?.orderId;
+      if(orderId)await releasePendingOrderStock(orderId,event.type==='checkout.session.expired'?'expired':'failed');
+    }
+  }catch(err){console.error('Stripe webhook handling error:',err);return res.status(500).json({received:false})}
+  res.json({received:true});
+});
+
 app.use(express.json({limit:'100kb'}));app.use(express.static(path.join(__dirname,'public')));
-app.get('/api/health',async(req,res)=>res.json({ok:true,version:'V7',storage:pool?'postgres':'json',stripeConfigured:Boolean(stripe),postNordMode:process.env.POSTNORD_API_KEY?'api-ready':'manual'}));
-app.get('/api/products',async(req,res)=>res.json(await getProducts()));
+app.get('/api/health',async(req,res)=>{
+  let ok=!pool||dbReady;
+  let database=!pool?'not-configured':dbReady?'ready':dbError?'error':'initializing';
+  let databaseError=dbError?'Database initialization failed; inspect deployment logs.':null;
+  if(pool&&dbReady){
+    try{await pool.query({text:'SELECT 1',statement_timeout:3000})}
+    catch(err){ok=false;database='error';databaseError='Database check failed; inspect deployment logs.';console.error('[DB] Health check failed:',err.message)}
+  }
+  res.status(ok?200:503).json({ok,ready:ok,version:'V7',storage:pool?'postgres':'json',database,databaseError,uptimeSeconds:Math.floor(process.uptime()),startedAt:serverStartedAt,stripeConfigured:Boolean(stripe),postNordMode:process.env.POSTNORD_API_KEY?'api-ready':'manual'});
+});
+app.get('/api/products',async(req,res)=>{if(pool&&!dbReady)return res.status(503).json({error:'Butiken startar fortfarande. Försök igen om en liten stund.'});try{return res.json(await getProducts())}catch(err){console.error('[DB] Product listing failed:',err.message);return res.status(503).json({error:'Produkterna kunde inte hämtas just nu. Försök igen.'})}});
 app.get('/api/locales/:lang',(req,res)=>{const lang=String(req.params.lang||'sv').toLowerCase(),allowed=['sv','en','de','fr'];if(!allowed.includes(lang))return res.status(404).json({error:'Language not found'});res.json({ui:readJson(path.join(localesDir,`${lang}.json`),{}),products:readJson(path.join(localesDir,'products.json'),{})[lang]||{}})});
 app.post('/api/admin/login',(req,res)=>{if(!ADMIN_PASSWORD)return res.status(503).json({error:'Admin is not configured. Set ADMIN_PASSWORD first.'});if(String(req.body?.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Fel lösenord.'});const token=crypto.randomBytes(32).toString('hex');sessions.set(token,Date.now()+1000*60*60*12);res.json({token})});
 app.post('/api/admin/logout',auth,(req,res)=>{const token=req.headers.authorization.replace(/^Bearer\s+/i,'');sessions.delete(token);res.json({ok:true})});
 app.get('/api/admin/orders',auth,async(req,res)=>res.json(await getOrders()));
-app.patch('/api/admin/orders/:id',auth,async(req,res)=>{const order=await getOrder(req.params.id);if(!order)return res.status(404).json({error:'Order not found'});const allowed=['Betalning väntar','Mottagen','Betald','Packas','Skickad','Levererad','Avbruten'],{status,trackingNumber,shippingMethod}=req.body||{};if(status!==undefined&&!allowed.includes(status))return res.status(400).json({error:'Ogiltig status.'});if(status!==undefined)order.status=status;if(trackingNumber!==undefined)order.trackingNumber=String(trackingNumber).trim().slice(0,120);if(shippingMethod!==undefined)order.shippingMethod=String(shippingMethod).trim().slice(0,80);order.updatedAt=new Date().toISOString();await saveOrder(order);res.json({ok:true,order})});
+app.patch('/api/admin/orders/:id',auth,async(req,res)=>{let order=await getOrder(req.params.id);if(!order)return res.status(404).json({error:'Order not found'});const allowed=['Betalning väntar','Mottagen','Betald','Packas','Skickad','Levererad','Avbruten'],{status,trackingNumber,shippingMethod}=req.body||{};if(status!==undefined&&!allowed.includes(status))return res.status(400).json({error:'Ogiltig status.'});if(status==='Avbruten'&&order.status==='Betalning väntar'){await releasePendingOrderStock(order.id,'cancelled');order=await getOrder(order.id)||order}if(status!==undefined)order.status=status;if(trackingNumber!==undefined)order.trackingNumber=String(trackingNumber).trim().slice(0,120);if(shippingMethod!==undefined)order.shippingMethod=String(shippingMethod).trim().slice(0,80);order.updatedAt=new Date().toISOString();await saveOrder(order);res.json({ok:true,order})});
 app.post('/api/admin/products',auth,async(req,res)=>{const body=req.body||{},id=String(body.id||'').trim();if(!/^[a-z0-9-]{2,40}$/.test(id)||!body.name||!body.brand||!body.category||!body.description||!body.image||!body.sizes||typeof body.sizes!=='object')return res.status(400).json({error:'Fyll i alla produktfält.'});if(await getProduct(id))return res.status(409).json({error:'Produkt-ID finns redan.'});const sizes={};for(const [s,v] of Object.entries(body.sizes)){const price=Number(v);if(!s||!Number.isFinite(price)||price<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=price}if(!Object.keys(sizes).length)return res.status(400).json({error:'Minst en storlek krävs.'});const stock={};for(const s of Object.keys(sizes))stock[s]=Math.max(0,Number.isInteger(Number(body.stock?.[s]))?Number(body.stock[s]):50);const p={id,name:String(body.name).trim(),brand:String(body.brand).trim(),category:String(body.category).trim(),description:String(body.description).trim(),notes:Array.isArray(body.notes)?body.notes.map(String):[],sizes,stock,image:String(body.image).trim(),bestseller:body.bestseller===true};setProductTranslations(p,await buildAutomaticTranslations(p));await saveProduct(p);res.json({ok:true,product:p})});
 app.patch('/api/admin/products/:id',auth,async(req,res)=>{const p=await getProduct(req.params.id);if(!p)return res.status(404).json({error:'Product not found'});const b=req.body||{};['name','brand','category','description','image'].forEach(k=>{if(b[k]!==undefined)p[k]=String(b[k]).trim()});if(b.notes!==undefined)p.notes=Array.isArray(b.notes)?b.notes.map(String):[];if(b.bestseller!==undefined)p.bestseller=b.bestseller===true;if(b.sizes!==undefined){if(!b.sizes||typeof b.sizes!=='object')return res.status(400).json({error:'Ogiltiga storlekar.'});const sizes={};for(const [s,v] of Object.entries(b.sizes)){const n=Number(v);if(!s||!Number.isFinite(n)||n<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=n}p.sizes=sizes;p.stock=p.stock||{};for(const s of Object.keys(sizes))if(!Number.isInteger(p.stock[s]))p.stock[s]=50;for(const s of Object.keys(p.stock))if(!Object.prototype.hasOwnProperty.call(sizes,s))delete p.stock[s]}if(b.stock!==undefined){if(!b.stock||typeof b.stock!=='object')return res.status(400).json({error:'Ogiltigt lager.'});for(const s of Object.keys(p.sizes||{})){const n=Number(b.stock[s]);if(!Number.isInteger(n)||n<0||n>100000)return res.status(400).json({error:'Lager måste vara ett heltal 0–100000.'});p.stock[s]=n}}setProductTranslations(p,await buildAutomaticTranslations(p));await saveProduct(p);res.json({ok:true,product:p})});
 app.delete('/api/admin/products/:id',auth,async(req,res)=>{if(!await getProduct(req.params.id))return res.status(404).json({error:'Product not found'});await deleteProduct(req.params.id);res.json({ok:true})});
-app.post('/api/orders/checkout',async(req,res)=>{if(!stripe)return res.status(503).json({error:'Stripe är inte konfigurerat ännu. Lägg in STRIPE_SECRET_KEY i .env.'});const built=await buildSafeOrder(req.body);if(built.error)return res.status(400).json({error:built.error});const {safe,subtotal,shippingCost,total,shippingMethod,customer}=built;const order={id:slugId(),createdAt:new Date().toISOString(),status:'Betalning väntar',paymentStatus:'unpaid',shippingMethod,shippingCost,customer,items:safe,subtotal,total};try{await reserveStock(safe);await saveOrder(order)}catch(err){return res.status(409).json({error:err.message||'Kunde inte reservera lager.'})}try{const line_items=safe.map(i=>({price_data:{currency:'sek',product_data:{name:`${i.name} — ${i.size}`,metadata:{productId:i.id,size:i.size}},unit_amount:Math.round(i.price*100)},quantity:i.qty}));if(shippingCost>0)line_items.push({price_data:{currency:'sek',product_data:{name:shippingMethod==='PostNord-Tracked'?'PostNord — Spårbar':'PostNord — Ospårbar'},unit_amount:Math.round(shippingCost*100)},quantity:1});const session=await stripe.checkout.sessions.create({mode:'payment',line_items,customer_email:customer.email,client_reference_id:order.id,metadata:{orderId:order.id,shippingMethod},billing_address_collection:'required',success_url:absoluteUrl(req,`/order/success?id=${encodeURIComponent(order.id)}&email=${encodeURIComponent(customer.email)}`),cancel_url:absoluteUrl(req,'/checkout.html?cancelled=1'),submit_type:'pay'});order.stripeSessionId=session.id;await saveOrder(order);res.json({ok:true,url:session.url,order:publicOrder(order)})}catch(err){await releaseStock(order);await deleteOrder(order.id);console.error('Stripe checkout error:',err);res.status(502).json({error:'Kunde inte starta betalningen. Försök igen.'})}});
+app.post('/api/orders/checkout',async(req,res)=>{
+  if(!stripe)return res.status(503).json({error:'Stripe är inte konfigurerat ännu. Lägg in STRIPE_SECRET_KEY i .env.'});
+  let built;
+  try{built=await buildSafeOrder(req.body)}catch(err){console.error('[Checkout] Order validation/database read failed:',err.message);return res.status(503).json({error:'Butiken kan inte behandla ordern just nu. Försök igen om en liten stund.'})}
+  if(built.error)return res.status(400).json({error:built.error});
+  const {safe,subtotal,discountAmount,campaignCode,shippingCost,total,shippingMethod,customer}=built;
+  const order={id:slugId(),createdAt:new Date().toISOString(),status:'Betalning väntar',paymentStatus:'unpaid',shippingMethod,shippingCost,customer,items:safe,subtotal,discountAmount,campaignCode,total};
+  try{await reserveStockAndSaveOrder(order)}
+  catch(err){return res.status(409).json({error:err.message||'Kunde inte reservera lager.'})}
+  try{
+    const line_items=safe.map(item=>({price_data:{currency:'sek',product_data:{name:`${item.name} — ${item.size}`,metadata:{productId:item.id,size:item.size}},unit_amount:Math.round(item.price*100)},quantity:item.qty}));
+    if(shippingCost>0)line_items.push({price_data:{currency:'sek',product_data:{name:shippingMethod==='PostNord-Tracked'?'PostNord — Spårbar':'PostNord — Ospårbar'},unit_amount:Math.round(shippingCost*100)},quantity:1});
+    const sessionParams={mode:'payment',line_items,customer_email:customer.email,client_reference_id:order.id,metadata:{orderId:order.id,shippingMethod,...(campaignCode?{campaignCode,discountAmount:String(discountAmount)}:{})},billing_address_collection:'required',success_url:absoluteUrl(req,`/order/success?id=${encodeURIComponent(order.id)}&email=${encodeURIComponent(customer.email)}`),cancel_url:absoluteUrl(req,'/checkout.html?cancelled=1'),submit_type:'pay'};
+    if(discountAmount>0){
+      const coupon=await stripe.coupons.create({amount_off:Math.round(discountAmount*100),currency:'sek',duration:'once',name:'Vinter2026 – Mystery Sample'});
+      sessionParams.discounts=[{coupon:coupon.id}];
+    }
+    const session=await stripe.checkout.sessions.create(sessionParams);
+    order.stripeSessionId=session.id;
+    await saveOrder(order);
+    res.json({ok:true,url:session.url,order:publicOrder(order)});
+  }catch(err){
+    try{await releasePendingOrderStock(order.id,'failed')}
+    catch(stockErr){console.error('[Stock] Failed to release after checkout creation error:',stockErr.message)}
+    console.error('Stripe checkout error:',err);
+    res.status(502).json({error:'Kunde inte starta betalningen. Försök igen.'});
+  }
+});
+
 app.get('/api/orders/:id',async(req,res)=>{const id=String(req.params.id||'').trim().toUpperCase(),email=String(req.query.email||'').trim().toLowerCase();if(!id||!email)return res.status(400).json({error:'Ordernummer och e-post krävs.'});const order=await getOrder(id);if(!order||String(order.customer.email).toLowerCase()!==email)return res.status(404).json({error:'Ordern hittades inte. Kontrollera ordernummer och e-post.'});res.json(publicOrder(order))});
 app.get('/admin',(req,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get('/order',(req,res)=>res.sendFile(path.join(__dirname,'public','order.html')));
 app.get('/order/success',(req,res)=>res.sendFile(path.join(__dirname,'public','success.html')));
 app.get('/terms',(req,res)=>res.sendFile(path.join(__dirname,'public','terms.html')));
 app.get('/privacy',(req,res)=>res.sendFile(path.join(__dirname,'public','privacy.html')));
-async function start(){try{await initDb();app.listen(PORT,()=>console.log(`ScentPlugSweden V7 kör på ${BASE_URL} (${pool?'PostgreSQL':'JSON'})`))}catch(e){console.error('Startup failed:',e);process.exit(1)}}
-start();
+app.listen(PORT,()=>console.log(`ScentPlugSweden V7 HTTP server listening on ${PORT}; storage=${pool?'PostgreSQL':'JSON'}`));
+if(pool){initDb().then(()=>{dbReady=true;dbError=null;console.log('[DB] Initialization complete')}).catch(e=>{dbReady=false;dbError=e;console.error('[DB] Initialization failed; HTTP server remains available for diagnostics:',e)})}else{initDb().catch(e=>console.error('[DB] JSON initialization warning:',e))}

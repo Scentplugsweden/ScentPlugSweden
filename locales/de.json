@@ -74,7 +74,7 @@
   "phone": "Telefon (optional)",
   "shipping": "· 22 SEK / 50 g · max. 250 g: 61 SEK · kostenlos ab 499 SEK",
   "shipping.method": "PostNord",
-  "shipping.details": "PostNord — 22 SEK bis 50 g · 44 SEK bis 100 g · 61 SEK bis 250 g · kostenlos ab 499 SEK",
+  "shipping.details": "PostNord — mit Sendungsverfolgung 61 SEK · ohne Sendungsverfolgung 39 SEK · kostenlos ab 499 SEK",
   "payment.title": "Zahlung",
   "payment.details": "Du schließt deine Zahlung sicher über Stripe ab.",
   "placeholder.name": "Dein Name",
@@ -106,7 +106,7 @@
   "stock.sold": "Ausverkauft",
   "stock.max": "Nicht mehr verfügbar.",
   "freeShipping": "Kostenloser Versand",
-  "shippingSummary": "Versand: {x} SEK ({grams} g)",
+  "shippingSummary": "Versand ab 39 SEK · kostenlos ab 499 SEK",
   "openingPayment": "Zahlung wird geöffnet…",
   "paymentError": "Zahlung konnte nicht gestartet werden."
 }
