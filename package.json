@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js && node --check public/admin.js && node --check public/checkout.js && node -e \"JSON.parse(require(\u0027fs\u0027).readFileSync(\u0027products.json\u0027)); JSON.parse(require(\u0027fs\u0027).readFileSync(\u0027locales/products.json\u0027))\""
+    "check": "node --check server.js && node --check campaign-hooks.js && node --check public/app.js && node --check public/admin.js && node --check public/checkout.js && node -e \"const fs=require('fs'); JSON.parse(fs.readFileSync('products.json','utf8')); JSON.parse(fs.readFileSync('locales/products.json','utf8'))\""
   },
   "dependencies": {
     "express": "^5.1.0",
