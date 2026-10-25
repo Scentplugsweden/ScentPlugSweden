@@ -3,7 +3,8 @@
   "version": "3.0.0",
   "private": true,
   "scripts": {
-    "start": "node -r ./campaign-hooks.js server.js"
+    "start": "node server.js",
+    "check": "node --check server.js && node --check public/app.js && node --check public/admin.js && node --check public/checkout.js && node -e \"JSON.parse(require(\u0027fs\u0027).readFileSync(\u0027products.json\u0027)); JSON.parse(require(\u0027fs\u0027).readFileSync(\u0027locales/products.json\u0027))\""
   },
   "dependencies": {
     "express": "^5.1.0",
