@@ -159,7 +159,16 @@ app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)
 });
 
 app.use(express.json({limit:'100kb'}));app.use(express.static(path.join(__dirname,'public')));
-app.get('/api/health',async(req,res)=>{const ok=!pool||dbReady;res.status(ok?200:503).json({ok,ready:ok,version:'V7',storage:pool?'postgres':'json',database:pool?(dbReady?'ready':dbError?'error':'initializing'):'not-configured',databaseError:dbError?'Database initialization failed; inspect deployment logs.':null,uptimeSeconds:Math.floor(process.uptime()),startedAt:serverStartedAt,stripeConfigured:Boolean(stripe),postNordMode:process.env.POSTNORD_API_KEY?'api-ready':'manual'})});
+app.get('/api/health',async(req,res)=>{
+  let ok=!pool||dbReady;
+  let database=!pool?'not-configured':dbReady?'ready':dbError?'error':'initializing';
+  let databaseError=dbError?'Database initialization failed; inspect deployment logs.':null;
+  if(pool&&dbReady){
+    try{await pool.query({text:'SELECT 1',statement_timeout:3000})}
+    catch(err){ok=false;database='error';databaseError='Database check failed; inspect deployment logs.';console.error('[DB] Health check failed:',err.message)}
+  }
+  res.status(ok?200:503).json({ok,ready:ok,version:'V7',storage:pool?'postgres':'json',database,databaseError,uptimeSeconds:Math.floor(process.uptime()),startedAt:serverStartedAt,stripeConfigured:Boolean(stripe),postNordMode:process.env.POSTNORD_API_KEY?'api-ready':'manual'});
+});
 app.get('/api/products',async(req,res)=>{if(pool&&!dbReady)return res.status(503).json({error:'Butiken startar fortfarande. Försök igen om en liten stund.'});try{return res.json(await getProducts())}catch(err){console.error('[DB] Product listing failed:',err.message);return res.status(503).json({error:'Produkterna kunde inte hämtas just nu. Försök igen.'})}});
 app.get('/api/locales/:lang',(req,res)=>{const lang=String(req.params.lang||'sv').toLowerCase(),allowed=['sv','en','de','fr'];if(!allowed.includes(lang))return res.status(404).json({error:'Language not found'});res.json({ui:readJson(path.join(localesDir,`${lang}.json`),{}),products:readJson(path.join(localesDir,'products.json'),{})[lang]||{}})});
 app.post('/api/admin/login',(req,res)=>{if(!ADMIN_PASSWORD)return res.status(503).json({error:'Admin is not configured. Set ADMIN_PASSWORD first.'});if(String(req.body?.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Fel lösenord.'});const token=crypto.randomBytes(32).toString('hex');sessions.set(token,Date.now()+1000*60*60*12);res.json({token})});
@@ -171,7 +180,8 @@ app.patch('/api/admin/products/:id',auth,async(req,res)=>{const p=await getProdu
 app.delete('/api/admin/products/:id',auth,async(req,res)=>{if(!await getProduct(req.params.id))return res.status(404).json({error:'Product not found'});await deleteProduct(req.params.id);res.json({ok:true})});
 app.post('/api/orders/checkout',async(req,res)=>{
   if(!stripe)return res.status(503).json({error:'Stripe är inte konfigurerat ännu. Lägg in STRIPE_SECRET_KEY i .env.'});
-  const built=await buildSafeOrder(req.body);
+  let built;
+  try{built=await buildSafeOrder(req.body)}catch(err){console.error('[Checkout] Order validation/database read failed:',err.message);return res.status(503).json({error:'Butiken kan inte behandla ordern just nu. Försök igen om en liten stund.'})}
   if(built.error)return res.status(400).json({error:built.error});
   const {safe,subtotal,discountAmount,campaignCode,shippingCost,total,shippingMethod,customer}=built;
   const order={id:slugId(),createdAt:new Date().toISOString(),status:'Betalning väntar',paymentStatus:'unpaid',shippingMethod,shippingCost,customer,items:safe,subtotal,discountAmount,campaignCode,total};
@@ -190,13 +200,8 @@ app.post('/api/orders/checkout',async(req,res)=>{
     await saveOrder(order);
     res.json({ok:true,url:session.url,order:publicOrder(order)});
   }catch(err){
-    try{
-      await releaseStock(order);
-      order.status='Avbruten';
-      order.paymentStatus='failed';
-      order.stockReleasedAt=new Date().toISOString();
-      await saveOrder(order);
-    }catch(stockErr){console.error('[Stock] Failed to release after checkout creation error:',stockErr.message)}
+    try{await releasePendingOrderStock(order.id,'failed')}
+    catch(stockErr){console.error('[Stock] Failed to release after checkout creation error:',stockErr.message)}
     console.error('Stripe checkout error:',err);
     res.status(502).json({error:'Kunde inte starta betalningen. Försök igen.'});
   }
