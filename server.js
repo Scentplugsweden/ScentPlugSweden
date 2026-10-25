@@ -48,7 +48,36 @@ async function saveOrder(o){if(pool)await pool.query('INSERT INTO orders(id,data
 async function deleteOrder(id){if(pool)await pool.query('DELETE FROM orders WHERE id=$1',[id]);else writeJson(ordersFile,readJson(ordersFile,[]).filter(o=>o.id!==id))}
 async function getProduct(id){if(pool){const r=await pool.query('SELECT data FROM products WHERE id=$1',[id]);return r.rows[0]?.data||null}return readJson(productsFile,[]).find(p=>p.id===id)||null}
 async function getOrder(id){if(pool){const r=await pool.query('SELECT data FROM orders WHERE id=$1',[id]);return r.rows[0]?.data||null}return readJson(ordersFile,[]).find(o=>o.id===id)||null}
-async function reserveStock(safe){if(pool){const client=await pool.connect();try{await client.query('BEGIN');for(const x of safe){const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);const p=r.rows[0]?.data;if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error(`${x.name} (${x.size}) är slut i lager.`);p.stock[x.size]-=x.qty;await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p])}await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}else{const catalog=await getProducts();for(const x of safe){const p=catalog.find(p=>p.id===x.id);if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error('Slut i lager');p.stock[x.size]-=x.qty}writeJson(productsFile,catalog)}}
+async function reserveStockAndSaveOrder(order){
+  if(pool){
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      for(const item of order.items){
+        const result=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[item.id]);
+        const product=result.rows[0]?.data;
+        if(!product||Number(product.stock?.[item.size]??0)<item.qty)throw new Error(`${item.name} (${item.size}) är slut i lager.`);
+        product.stock[item.size]-=item.qty;
+        await client.query('UPDATE products SET data=$2 WHERE id=$1',[item.id,product]);
+      }
+      await client.query('INSERT INTO orders(id,data) VALUES($1,$2)',[order.id,order]);
+      await client.query('COMMIT');
+    }catch(err){await client.query('ROLLBACK');throw err}
+    finally{client.release()}
+    return;
+  }
+  const catalog=await getProducts();
+  const original=JSON.parse(JSON.stringify(catalog));
+  for(const item of order.items){
+    const product=catalog.find(p=>p.id===item.id);
+    if(!product||Number(product.stock?.[item.size]??0)<item.qty)throw new Error(`${item.name} (${item.size}) är slut i lager.`);
+    product.stock[item.size]-=item.qty;
+  }
+  writeJson(productsFile,catalog);
+  try{await saveOrder(order)}
+  catch(err){writeJson(productsFile,original);throw err}
+}
+
 async function releaseStock(order){if(pool){const client=await pool.connect();try{await client.query('BEGIN');for(const x of order.items){const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);const p=r.rows[0]?.data;if(!p)continue;p.stock=p.stock||{};p.stock[x.size]=Number(p.stock[x.size]||0)+Number(x.qty||0);await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p])}await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}else{const catalog=await getProducts();for(const x of order.items){const p=catalog.find(p=>p.id===x.id);if(!p)continue;p.stock=p.stock||{};p.stock[x.size]=Number(p.stock[x.size]||0)+Number(x.qty||0)}writeJson(productsFile,catalog)}}
 
 async function releasePendingOrderStock(orderId,paymentStatus){
@@ -185,7 +214,7 @@ app.post('/api/orders/checkout',async(req,res)=>{
   if(built.error)return res.status(400).json({error:built.error});
   const {safe,subtotal,discountAmount,campaignCode,shippingCost,total,shippingMethod,customer}=built;
   const order={id:slugId(),createdAt:new Date().toISOString(),status:'Betalning väntar',paymentStatus:'unpaid',shippingMethod,shippingCost,customer,items:safe,subtotal,discountAmount,campaignCode,total};
-  try{await reserveStock(safe);await saveOrder(order)}
+  try{await reserveStockAndSaveOrder(order)}
   catch(err){return res.status(409).json({error:err.message||'Kunde inte reservera lager.'})}
   try{
     const line_items=safe.map(item=>({price_data:{currency:'sek',product_data:{name:`${item.name} — ${item.size}`,metadata:{productId:item.id,size:item.size}},unit_amount:Math.round(item.price*100)},quantity:item.qty}));
