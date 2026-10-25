@@ -50,6 +50,41 @@ async function getProduct(id){if(pool){const r=await pool.query('SELECT data FRO
 async function getOrder(id){if(pool){const r=await pool.query('SELECT data FROM orders WHERE id=$1',[id]);return r.rows[0]?.data||null}return readJson(ordersFile,[]).find(o=>o.id===id)||null}
 async function reserveStock(safe){if(pool){const client=await pool.connect();try{await client.query('BEGIN');for(const x of safe){const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);const p=r.rows[0]?.data;if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error(`${x.name} (${x.size}) är slut i lager.`);p.stock[x.size]-=x.qty;await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p])}await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}else{const catalog=await getProducts();for(const x of safe){const p=catalog.find(p=>p.id===x.id);if(!p||Number(p.stock?.[x.size]??0)<x.qty)throw new Error('Slut i lager');p.stock[x.size]-=x.qty}writeJson(productsFile,catalog)}}
 async function releaseStock(order){if(pool){const client=await pool.connect();try{await client.query('BEGIN');for(const x of order.items){const r=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[x.id]);const p=r.rows[0]?.data;if(!p)continue;p.stock=p.stock||{};p.stock[x.size]=Number(p.stock[x.size]||0)+Number(x.qty||0);await client.query('UPDATE products SET data=$2 WHERE id=$1',[x.id,p])}await client.query('COMMIT')}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}}else{const catalog=await getProducts();for(const x of order.items){const p=catalog.find(p=>p.id===x.id);if(!p)continue;p.stock=p.stock||{};p.stock[x.size]=Number(p.stock[x.size]||0)+Number(x.qty||0)}writeJson(productsFile,catalog)}}
+
+async function releasePendingOrderStock(orderId,paymentStatus){
+  if(pool){
+    const client=await pool.connect();
+    try{
+      await client.query('BEGIN');
+      const found=await client.query('SELECT data FROM orders WHERE id=$1 FOR UPDATE',[orderId]);
+      const order=found.rows[0]?.data;
+      if(!order||order.status!=='Betalning väntar'||order.stockReleasedAt){await client.query('COMMIT');return}
+      for(const item of order.items||[]){
+        const result=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[item.id]);
+        const product=result.rows[0]?.data;
+        if(!product)continue;
+        product.stock=product.stock||{};
+        product.stock[item.size]=Number(product.stock[item.size]||0)+Number(item.qty||0);
+        await client.query('UPDATE products SET data=$2 WHERE id=$1',[item.id,product]);
+      }
+      order.status='Avbruten';
+      order.paymentStatus=paymentStatus;
+      order.stockReleasedAt=new Date().toISOString();
+      await client.query('UPDATE orders SET data=$2 WHERE id=$1',[orderId,order]);
+      await client.query('COMMIT');
+    }catch(err){await client.query('ROLLBACK');throw err}
+    finally{client.release()}
+    return;
+  }
+  const order=await getOrder(orderId);
+  if(!order||order.status!=='Betalning väntar'||order.stockReleasedAt)return;
+  await releaseStock(order);
+  order.status='Avbruten';
+  order.paymentStatus=paymentStatus;
+  order.stockReleasedAt=new Date().toISOString();
+  await saveOrder(order);
+}
+
 function auth(req,res,next){const token=req.headers.authorization?.replace(/^Bearer\s+/i,'');const expiry=sessions.get(token);if(!token||!expiry||expiry<Date.now()){if(token)sessions.delete(token);return res.status(401).json({error:'Unauthorized'})}sessions.set(token,Date.now()+1000*60*60*12);next()}
 function publicOrder(o){return {id:o.id,createdAt:o.createdAt,status:o.status,paymentStatus:o.paymentStatus||'unpaid',shippingMethod:o.shippingMethod,trackingNumber:o.trackingNumber||'',items:o.items.map(i=>({name:i.name,size:i.size,qty:i.qty})),subtotal:o.subtotal,discountAmount:Number(o.discountAmount||0),campaignCode:o.campaignCode||null,shippingCost:o.shippingCost,total:o.total}}
 
@@ -116,14 +151,8 @@ app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)
         await saveOrder(order);
       }
     }else if(event.type==='checkout.session.expired'||event.type==='checkout.session.async_payment_failed'){
-      const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;
-      if(order&&order.status==='Betalning väntar'&&!order.stockReleasedAt){
-        await releaseStock(order);
-        order.status='Avbruten';
-        order.paymentStatus=event.type==='checkout.session.expired'?'expired':'failed';
-        order.stockReleasedAt=new Date().toISOString();
-        await saveOrder(order);
-      }
+      const session=event.data.object,orderId=session.metadata?.orderId;
+      if(orderId)await releasePendingOrderStock(orderId,event.type==='checkout.session.expired'?'expired':'failed');
     }
   }catch(err){console.error('Stripe webhook handling error:',err)}
   res.json({received:true});
@@ -161,8 +190,13 @@ app.post('/api/orders/checkout',async(req,res)=>{
     await saveOrder(order);
     res.json({ok:true,url:session.url,order:publicOrder(order)});
   }catch(err){
-    try{await releaseStock(order);order.stockReleasedAt=new Date().toISOString();await deleteOrder(order.id)}
-    catch(stockErr){console.error('[Stock] Failed to release after checkout creation error:',stockErr.message)}
+    try{
+      await releaseStock(order);
+      order.status='Avbruten';
+      order.paymentStatus='failed';
+      order.stockReleasedAt=new Date().toISOString();
+      await saveOrder(order);
+    }catch(stockErr){console.error('[Stock] Failed to release after checkout creation error:',stockErr.message)}
     console.error('Stripe checkout error:',err);
     res.status(502).json({error:'Kunde inte starta betalningen. Försök igen.'});
   }
