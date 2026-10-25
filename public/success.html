@@ -10,7 +10,7 @@ async function load(){
  if(!r.ok){$('#message').textContent=o.error||'Kunde inte läsa ordern.';return}
  const paid=o.paymentStatus==='paid'||o.status==='Betald'||['Packas','Skickad','Levererad'].includes(o.status);
  $('#message').innerHTML=paid?'Betalningen är bekräftad. Din order är registrerad.':'Din order är skapad och betalningen håller på att bekräftas. Du kan följa statusen här.';
- $('#result').innerHTML='<div class="orderResult"><div class="orderResultHead"><div><small>ORDER</small><h2>'+esc(o.id)+'</h2></div><span class="pill">'+esc(o.status)+'</span></div><p><b>PostNord</b> · '+(o.shippingCost===0?'Fri frakt':o.shippingCost+' kr')+'</p><ul>'+o.items.map(i=>'<li>'+esc(i.name)+' — '+esc(i.size)+' × '+i.qty+'</li>').join('')+'</ul><div class="orderTotals"><span>Totalt</span><b>'+o.total+' kr</b></div><a class="btn full" href="/order?id='+encodeURIComponent(o.id)+'&email='+encodeURIComponent(email)+'">Visa orderstatus</a></div>';
+ $('#result').innerHTML='<div class="orderResult"><div class="orderResultHead"><div><small>ORDER</small><h2>'+esc(o.id)+'</h2></div><span class="pill">'+esc(o.status)+'</span></div><p><b>PostNord</b> · '+(o.shippingCost===0?'Fri frakt':o.shippingCost+' kr')+'</p>'+(Number(o.discountAmount)>0?'<p><b>Kampanjrabatt</b> · −'+esc(o.discountAmount)+' kr</p>':'')+'<ul>'+o.items.map(i=>'<li>'+esc(i.name)+' — '+esc(i.size)+' × '+i.qty+'</li>').join('')+'</ul><div class="orderTotals"><span>Totalt</span><b>'+o.total+' kr</b></div><a class="btn full" href="/order?id='+encodeURIComponent(o.id)+'&email='+encodeURIComponent(email)+'">Visa orderstatus</a></div>';
 }
 load();
 </script></body></html>
