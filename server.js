@@ -182,7 +182,7 @@ app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)
   try{event=stripe.webhooks.constructEvent(req.body,req.headers['stripe-signature'],STRIPE_WEBHOOK_SECRET)}
   catch(err){return res.status(400).send(`Webhook Error: ${err.message}`)}
   try{
-    if(event.type==='checkout.session.completed'){
+    if(event.type==='checkout.session.completed'||event.type==='checkout.session.async_payment_succeeded'){
       const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;
       if(order){
         order.stripeSessionId=session.id;
@@ -192,12 +192,15 @@ app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)
           order.paidAt=order.paidAt||new Date().toISOString();
         }
         await saveOrder(order);
+      }else if(orderId){
+        console.error('[Stripe webhook] Order not found for session:',session.id);
+        return res.status(500).json({received:false});
       }
     }else if(event.type==='checkout.session.expired'||event.type==='checkout.session.async_payment_failed'){
       const session=event.data.object,orderId=session.metadata?.orderId;
       if(orderId)await releasePendingOrderStock(orderId,event.type==='checkout.session.expired'?'expired':'failed');
     }
-  }catch(err){console.error('Stripe webhook handling error:',err)}
+  }catch(err){console.error('Stripe webhook handling error:',err);return res.status(500).json({received:false})}
   res.json({received:true});
 });
 
