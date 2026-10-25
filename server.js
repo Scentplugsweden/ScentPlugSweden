@@ -10,7 +10,8 @@ const STRIPE_SECRET_KEY=process.env.STRIPE_SECRET_KEY||'';
 const STRIPE_WEBHOOK_SECRET=process.env.STRIPE_WEBHOOK_SECRET||'';
 const stripe=STRIPE_SECRET_KEY?Stripe(STRIPE_SECRET_KEY):null;
 const sessions=new Map();
-const pool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}}):null;
+const pool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:5000,query_timeout:10000,idleTimeoutMillis:30000}):null;
+let dbReady=!pool,dbError=null,serverStartedAt=new Date().toISOString();
 const TRANSLATION_PREFIX='__SP_TRANSLATIONS__:';
 const TRANSLATION_LANGS=['en','de','fr'];
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
@@ -38,7 +39,7 @@ async function buildAutomaticTranslations(p){const base={name:p.name||'',brand:p
 function setProductTranslations(p,translations){const clean=Array.isArray(p.notes)?p.notes.filter(n=>!String(n).startsWith(TRANSLATION_PREFIX)).map(String):[];p.notes=[...clean,TRANSLATION_PREFIX+encodeURIComponent(JSON.stringify(translations))];return p}
 app.post('/webhook/stripe',express.raw({type:'application/json'}),async(req,res)=>{if(!stripe||!STRIPE_WEBHOOK_SECRET)return res.status(503).send('Stripe webhook is not configured.');let event;try{event=stripe.webhooks.constructEvent(req.body,req.headers['stripe-signature'],STRIPE_WEBHOOK_SECRET)}catch(err){return res.status(400).send(`Webhook Error: ${err.message}`)}try{if(event.type==='checkout.session.completed'){const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;if(order){order.stripeSessionId=session.id;order.paymentStatus=session.payment_status||'paid';if(session.payment_status==='paid'&&order.status==='Betalning väntar')order.status='Betald';order.paidAt=order.paidAt||new Date().toISOString();await saveOrder(order)}}else if(event.type==='checkout.session.expired'){const session=event.data.object,orderId=session.metadata?.orderId,order=orderId?await getOrder(orderId):null;if(order&&order.status==='Betalning väntar'&&!order.stockReleasedAt){await releaseStock(order);order.status='Avbruten';order.paymentStatus='expired';order.stockReleasedAt=new Date().toISOString();await saveOrder(order)}}}catch(err){console.error('Stripe webhook handling error:',err)}res.json({received:true})});
 app.use(express.json({limit:'100kb'}));app.use(express.static(path.join(__dirname,'public')));
-app.get('/api/health',async(req,res)=>res.json({ok:true,version:'V7',storage:pool?'postgres':'json',stripeConfigured:Boolean(stripe),postNordMode:process.env.POSTNORD_API_KEY?'api-ready':'manual'}));
+app.get('/api/health',async(req,res)=>{const ok=!pool||dbReady;res.status(ok?200:503).json({ok,ready:ok,version:'V7',storage:pool?'postgres':'json',database:pool?(dbReady?'ready':dbError?'error':'initializing'):'not-configured',databaseError:dbError?'Database initialization failed; inspect deployment logs.':null,uptimeSeconds:Math.floor(process.uptime()),startedAt:serverStartedAt,stripeConfigured:Boolean(stripe),postNordMode:process.env.POSTNORD_API_KEY?'api-ready':'manual'})});
 app.get('/api/products',async(req,res)=>res.json(await getProducts()));
 app.get('/api/locales/:lang',(req,res)=>{const lang=String(req.params.lang||'sv').toLowerCase(),allowed=['sv','en','de','fr'];if(!allowed.includes(lang))return res.status(404).json({error:'Language not found'});res.json({ui:readJson(path.join(localesDir,`${lang}.json`),{}),products:readJson(path.join(localesDir,'products.json'),{})[lang]||{}})});
 app.post('/api/admin/login',(req,res)=>{if(!ADMIN_PASSWORD)return res.status(503).json({error:'Admin is not configured. Set ADMIN_PASSWORD first.'});if(String(req.body?.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Fel lösenord.'});const token=crypto.randomBytes(32).toString('hex');sessions.set(token,Date.now()+1000*60*60*12);res.json({token})});
@@ -55,5 +56,5 @@ app.get('/order',(req,res)=>res.sendFile(path.join(__dirname,'public','order.htm
 app.get('/order/success',(req,res)=>res.sendFile(path.join(__dirname,'public','success.html')));
 app.get('/terms',(req,res)=>res.sendFile(path.join(__dirname,'public','terms.html')));
 app.get('/privacy',(req,res)=>res.sendFile(path.join(__dirname,'public','privacy.html')));
-async function start(){try{await initDb();app.listen(PORT,()=>console.log(`ScentPlugSweden V7 kör på ${BASE_URL} (${pool?'PostgreSQL':'JSON'})`))}catch(e){console.error('Startup failed:',e);process.exit(1)}}
-start();
+app.listen(PORT,()=>console.log(`ScentPlugSweden V7 HTTP server listening on ${PORT}; storage=${pool?'PostgreSQL':'JSON'}`));
+if(pool){initDb().then(()=>{dbReady=true;dbError=null;console.log('[DB] Initialization complete')}).catch(e=>{dbReady=false;dbError=e;console.error('[DB] Initialization failed; HTTP server remains available for diagnostics:',e)})}else{initDb().catch(e=>console.error('[DB] JSON initialization warning:',e))}
