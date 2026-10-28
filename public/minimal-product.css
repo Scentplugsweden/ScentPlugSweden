@@ -15,5 +15,6 @@
 .modalPrice{font-size:30px!important;font-weight:500!important;margin:26px 0 20px!important;color:#111!important}
 .modalInfo .btn{min-height:58px!important;border-radius:999px!important;font-size:14px!important;letter-spacing:.2px!important;flex-shrink:0!important}
 .modalClose{position:absolute!important;right:22px!important;top:18px!important;z-index:5!important;width:42px!important;height:42px!important;border-radius:50%!important;background:#fff!important;font-size:26px!important;line-height:1!important;box-shadow:0 5px 20px rgba(0,0,0,.08)!important}
-.cardDescription{display:block!important;visibility:visible!important;opacity:1!important;color:#666!important;min-height:48px!important;margin:8px 0 16px!important;line-height:1.65!important}
+/* Product descriptions belong only in the product detail modal, never on listing cards. */
+.cardDescription{display:none!important;visibility:hidden!important;opacity:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important}
 @media(max-width:850px){.productModal{grid-template-columns:1fr!important;max-height:92vh!important;overflow-y:auto!important}.productModal>img{height:42vh!important;min-height:300px!important;max-height:42vh!important;padding:18px!important}.modalInfo{height:auto!important;max-height:none!important;overflow:visible!important;padding:34px 26px 30px!important}.modalInfo h2{font-size:40px!important}.overlay{padding:12px!important;overflow-y:auto!important}}
