@@ -16,7 +16,7 @@ const TRANSLATION_PREFIX='__SP_TRANSLATIONS__:';
 const TRANSLATION_LANGS=['en','de','fr'];
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function writeJson(file,data){fs.writeFileSync(file,JSON.stringify(data,null,2))}
-function normalizeProducts(products){let changed=false;for(const p of products){if(!p.stock||typeof p.stock!=='object'){p.stock={};Object.keys(p.sizes||{}).forEach(s=>p.stock[s]=50);changed=true}else for(const s of Object.keys(p.sizes||{}))if(!Number.isInteger(p.stock[s])){p.stock[s]=50;changed=true}if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}}return {products,changed}}
+function normalizeProducts(products){let changed=false;for(const p of products){if(!p.stock||typeof p.stock!=='object'||Array.isArray(p.stock)){p.stock={};changed=true}for(const size of Object.keys(p.sizes||{})){if(!Number.isInteger(p.stock[size])||p.stock[size]<0){p.stock[size]=0;changed=true}}if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}}return {products,changed}}
 async function initDb(){
   console.log('[DB] initDb started');
   if(!pool){console.log('[DB] No PostgreSQL pool, using JSON');const {products,changed}=normalizeProducts(readJson(productsFile,[]));if(changed)writeJson(productsFile,products);return}
@@ -36,7 +36,7 @@ async function initDb(){
     let changed=false;
     if(!product.stock||typeof product.stock!=='object'||Array.isArray(product.stock)){product.stock={};changed=true}
     for(const size of Object.keys(product.sizes||{})){
-      if(!Number.isInteger(product.stock[size])||product.stock[size]<0){product.stock[size]=50;changed=true}
+      if(!Number.isInteger(product.stock[size])||product.stock[size]<0){product.stock[size]=0;changed=true}
     }
     if(typeof product.bestseller!=='boolean'){product.bestseller=false;changed=true}
     if(changed)await pool.query('UPDATE products SET data=$2 WHERE id=$1',[row.id,product]);
@@ -67,7 +67,8 @@ async function reserveStockAndSaveOrder(order){
     const client=await pool.connect();
     try{
       await client.query('BEGIN');
-      for(const item of order.items){
+      const orderedItems=[...order.items].sort((a,b)=>String(a.id).localeCompare(String(b.id))||String(a.size).localeCompare(String(b.size)));
+      for(const item of orderedItems){
         const result=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[item.id]);
         const product=result.rows[0]?.data;
         if(!product||Number(product.stock?.[item.size]??0)<item.qty)throw new Error(`${item.name} (${item.size}) är slut i lager.`);
@@ -102,7 +103,8 @@ async function releasePendingOrderStock(orderId,paymentStatus){
       const found=await client.query('SELECT data FROM orders WHERE id=$1 FOR UPDATE',[orderId]);
       const order=found.rows[0]?.data;
       if(!order||order.status!=='Betalning väntar'||order.stockReleasedAt){await client.query('COMMIT');return}
-      for(const item of order.items||[]){
+      const orderedItems=[...(order.items||[])].sort((a,b)=>String(a.id).localeCompare(String(b.id))||String(a.size).localeCompare(String(b.size)));
+      for(const item of orderedItems){
         const result=await client.query('SELECT data FROM products WHERE id=$1 FOR UPDATE',[item.id]);
         const product=result.rows[0]?.data;
         if(!product)continue;
@@ -220,7 +222,7 @@ app.get('/api/locales/:lang',(req,res)=>{const lang=String(req.params.lang||'sv'
 app.post('/api/admin/login',(req,res)=>{if(!ADMIN_PASSWORD)return res.status(503).json({error:'Admin is not configured. Set ADMIN_PASSWORD first.'});if(String(req.body?.password||'')!==ADMIN_PASSWORD)return res.status(401).json({error:'Fel lösenord.'});const token=crypto.randomBytes(32).toString('hex');sessions.set(token,Date.now()+1000*60*60*12);res.json({token})});
 app.post('/api/admin/logout',auth,(req,res)=>{const token=req.headers.authorization.replace(/^Bearer\s+/i,'');sessions.delete(token);res.json({ok:true})});
 app.get('/api/admin/orders',auth,async(req,res)=>res.json(await getOrders()));
-app.patch('/api/admin/orders/:id',auth,async(req,res)=>{let order=await getOrder(req.params.id);if(!order)return res.status(404).json({error:'Order not found'});const allowed=['Betalning väntar','Mottagen','Betald','Packas','Skickad','Levererad','Avbruten'],{status,trackingNumber,shippingMethod}=req.body||{};if(status!==undefined&&!allowed.includes(status))return res.status(400).json({error:'Ogiltig status.'});if(status==='Avbruten'&&order.status==='Betalning väntar'){await releasePendingOrderStock(order.id,'cancelled');order=await getOrder(order.id)||order}if(status!==undefined)order.status=status;if(trackingNumber!==undefined)order.trackingNumber=String(trackingNumber).trim().slice(0,120);if(shippingMethod!==undefined)order.shippingMethod=String(shippingMethod).trim().slice(0,80);order.updatedAt=new Date().toISOString();await saveOrder(order);res.json({ok:true,order})});
+app.patch('/api/admin/orders/:id',auth,async(req,res)=>{let order=await getOrder(req.params.id);if(!order)return res.status(404).json({error:'Order not found'});const allowed=['Betalning väntar','Mottagen','Betald','Packas','Skickad','Levererad','Avbruten'],{status,trackingNumber,shippingMethod}=req.body||{};if(status!==undefined&&!allowed.includes(status))return res.status(400).json({error:'Ogiltig status.'});if(status==='Betald'&&order.paymentStatus!=='paid')return res.status(409).json({error:'Ordern kan bara markeras som betald när Stripe har bekräftat betalningen.'});if(status==='Avbruten'&&order.paymentStatus==='paid')return res.status(409).json({error:'En betald order kan inte avbrytas här. Hantera eventuell återbetalning i Stripe först.'});if(status==='Betalning väntar'&&order.status!=='Betalning väntar')return res.status(409).json({error:'En order kan inte återställas till väntande betalning.'});if(status==='Avbruten'&&order.status==='Betalning väntar'){await releasePendingOrderStock(order.id,'cancelled');order=await getOrder(order.id)||order}if(status!==undefined)order.status=status;if(trackingNumber!==undefined)order.trackingNumber=String(trackingNumber).trim().slice(0,120);if(shippingMethod!==undefined)order.shippingMethod=String(shippingMethod).trim().slice(0,80);order.updatedAt=new Date().toISOString();await saveOrder(order);res.json({ok:true,order})});
 app.post('/api/admin/products',auth,async(req,res)=>{const body=req.body||{},id=String(body.id||'').trim();if(!/^[a-z0-9-]{2,40}$/.test(id)||!body.name||!body.brand||!body.category||!body.description||!body.image||!body.sizes||typeof body.sizes!=='object')return res.status(400).json({error:'Fyll i alla produktfält.'});if(await getProduct(id))return res.status(409).json({error:'Produkt-ID finns redan.'});const sizes={};for(const [s,v] of Object.entries(body.sizes)){const price=Number(v);if(!s||!Number.isFinite(price)||price<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=price}if(!Object.keys(sizes).length)return res.status(400).json({error:'Minst en storlek krävs.'});const stock={};for(const s of Object.keys(sizes))stock[s]=Math.max(0,Number.isInteger(Number(body.stock?.[s]))?Number(body.stock[s]):50);const p={id,name:String(body.name).trim(),brand:String(body.brand).trim(),category:String(body.category).trim(),description:String(body.description).trim(),notes:Array.isArray(body.notes)?body.notes.map(String):[],sizes,stock,image:String(body.image).trim(),bestseller:body.bestseller===true};setProductTranslations(p,await buildAutomaticTranslations(p));await saveProduct(p);res.json({ok:true,product:p})});
 app.patch('/api/admin/products/:id',auth,async(req,res)=>{const p=await getProduct(req.params.id);if(!p)return res.status(404).json({error:'Product not found'});const b=req.body||{};['name','brand','category','description','image'].forEach(k=>{if(b[k]!==undefined)p[k]=String(b[k]).trim()});if(b.notes!==undefined)p.notes=Array.isArray(b.notes)?b.notes.map(String):[];if(b.bestseller!==undefined)p.bestseller=b.bestseller===true;if(b.sizes!==undefined){if(!b.sizes||typeof b.sizes!=='object')return res.status(400).json({error:'Ogiltiga storlekar.'});const sizes={};for(const [s,v] of Object.entries(b.sizes)){const n=Number(v);if(!s||!Number.isFinite(n)||n<0)return res.status(400).json({error:'Ogiltigt pris.'});sizes[s]=n}p.sizes=sizes;p.stock=p.stock||{};for(const s of Object.keys(sizes))if(!Number.isInteger(p.stock[s]))p.stock[s]=50;for(const s of Object.keys(p.stock))if(!Object.prototype.hasOwnProperty.call(sizes,s))delete p.stock[s]}if(b.stock!==undefined){if(!b.stock||typeof b.stock!=='object')return res.status(400).json({error:'Ogiltigt lager.'});for(const s of Object.keys(p.sizes||{})){const n=Number(b.stock[s]);if(!Number.isInteger(n)||n<0||n>100000)return res.status(400).json({error:'Lager måste vara ett heltal 0–100000.'});p.stock[s]=n}}setProductTranslations(p,await buildAutomaticTranslations(p));await saveProduct(p);res.json({ok:true,product:p})});
 app.delete('/api/admin/products/:id',auth,async(req,res)=>{if(!await getProduct(req.params.id))return res.status(404).json({error:'Product not found'});await deleteProduct(req.params.id);res.json({ok:true})});
