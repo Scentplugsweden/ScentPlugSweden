@@ -15,7 +15,8 @@ function mount(){
  $('#ordersTab')?.addEventListener('click',()=>show('ordersSection'));
  $('#productsTab')?.addEventListener('click',()=>show('productsSection'));
  $('#isGenerate').addEventListener('click',generate);
- $('#isApprove').addEventListener('click',approve);\n $('#isRestore').addEventListener('click',restoreOriginal);
+ $('#isApprove').addEventListener('click',approve);
+ $('#isRestore').addEventListener('click',restoreOriginal);
  $('#isDiscard').addEventListener('click',()=>{$('#isPreview').classList.add('hidden');latestImageId='';latestProductId='';});
  loadProducts();
 }
@@ -31,7 +32,7 @@ async function generate(){
  try{
   const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(Error('Kunde inte läsa bilden.'));r.readAsDataURL(file)});
   const result=await json(await fetch('/api/admin/image-studio/generate',{method:'POST',headers:headers(),body:JSON.stringify({productId,imageData:dataUrl,style:$('#isStyle').value,extraPrompt:$('#isPrompt').value})}));
-  latestImageId=result.id;latestProductId=productId;$('#isResult').src='/api/product-images/'+encodeURIComponent(result.id);$('#isMeta').textContent='Ny bild skapad · '+Originalbilden är oförändrad.';$('#isPreview').classList.remove('hidden');$('#isApproveStatus').textContent='';status.textContent='Bilden är klar. Granska den innan du godkänner.';
+  latestImageId=result.id;latestProductId=productId;$('#isResult').src='/api/product-images/'+encodeURIComponent(result.id);$('#isMeta').textContent='Ny bild skapad · Originalbilden är oförändrad.';$('#isPreview').classList.remove('hidden');$('#isApproveStatus').textContent='';status.textContent='Bilden är klar. Granska den innan du godkänner.';
  }catch(e){status.textContent=e.message}
  finally{button.disabled=false;button.textContent='Generera bild'}
 }
@@ -42,5 +43,6 @@ async function approve(){
  catch(e){$('#isApproveStatus').textContent=e.message}
  finally{button.disabled=false}
 }
-async function restoreOriginal(){if(!latestImageId||!latestProductId)return;const button=$('#isRestore');button.disabled=true;try{await json(await fetch('/api/admin/image-studio/restore',{method:'POST',headers:headers(),body:JSON.stringify({imageId:latestImageId,productId:latestProductId})}));$('#isApproveStatus').textContent='Originalbilden är återställd.';button.classList.add('hidden');await loadProducts()}catch(e){$('#isApproveStatus').textContent=e.message}finally{button.disabled=false}}\nconst observer=new MutationObserver(mount);observer.observe(document.documentElement,{childList:true,subtree:true});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
+async function restoreOriginal(){if(!latestImageId||!latestProductId)return;const button=$('#isRestore');button.disabled=true;try{await json(await fetch('/api/admin/image-studio/restore',{method:'POST',headers:headers(),body:JSON.stringify({imageId:latestImageId,productId:latestProductId})}));$('#isApproveStatus').textContent='Originalbilden är återställd.';button.classList.add('hidden');await loadProducts()}catch(e){$('#isApproveStatus').textContent=e.message}finally{button.disabled=false}}
+const observer=new MutationObserver(mount);observer.observe(document.documentElement,{childList:true,subtree:true});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
 })();
