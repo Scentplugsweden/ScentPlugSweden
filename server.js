@@ -17,7 +17,7 @@ const TRANSLATION_PREFIX='__SP_TRANSLATIONS__:';
 const TRANSLATION_LANGS=['en','de','fr'];
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function writeJson(file,data){fs.writeFileSync(file,JSON.stringify(data,null,2))}
-function normalizeProducts(products){let changed=false;for(const p of products){if(!p.stock||typeof p.stock!=='object'||Array.isArray(p.stock)){p.stock={};changed=true}for(const size of Object.keys(p.sizes||{})){if(!Number.isInteger(p.stock[size])||p.stock[size]<0){p.stock[size]=0;changed=true}}if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}}return {products,changed}}
+function normalizeProducts(products){let changed=false;for(const p of products){if(!p.stock||typeof p.stock!=='object'||Array.isArray(p.stock)){p.stock={};changed=true}for(const size of Object.keys(p.sizes||{})){if(!Number.isInteger(p.stock[size])||p.stock[size]<0){p.stock[size]=50;changed=true}}if(typeof p.bestseller!=='boolean'){p.bestseller=false;changed=true}}return {products,changed}}
 async function initDb(){
   console.log('[DB] initDb started');
   if(!pool){console.log('[DB] No PostgreSQL pool, using JSON');const {products,changed}=normalizeProducts(readJson(productsFile,[]));if(changed)writeJson(productsFile,products);return}
@@ -37,7 +37,7 @@ async function initDb(){
     let changed=false;
     if(!product.stock||typeof product.stock!=='object'||Array.isArray(product.stock)){product.stock={};changed=true}
     for(const size of Object.keys(product.sizes||{})){
-      if(!Number.isInteger(product.stock[size])||product.stock[size]<0){product.stock[size]=0;changed=true}
+      if(!Number.isInteger(product.stock[size])||product.stock[size]<0){product.stock[size]=50;changed=true}
     }
     if(typeof product.bestseller!=='boolean'){product.bestseller=false;changed=true}
     if(changed)await pool.query('UPDATE products SET data=$2 WHERE id=$1',[row.id,product]);
