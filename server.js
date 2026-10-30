@@ -232,7 +232,7 @@ app.post('/api/admin/image-studio/generate',auth,async(req,res)=>{
   if(!/^[a-z0-9-]{2,40}$/.test(String(productId||'')))return res.status(400).json({error:'Ogiltigt produkt-ID.'});
   const product=await getProduct(productId);if(!product||product.hidden)return res.status(404).json({error:'Produkten hittades inte.'});
   if(typeof imageData!=='string'||imageData.length>11*1024*1024)return res.status(400).json({error:'Bilden saknas eller är för stor.'});
-  const match=imageData.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/);if(!match)return res.status(400).json({error:'Använd en giltig JPG-, PNG- eller WebP-bild.'});
+  const match=imageData.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/);if(!match)return res.status(400).json({error:'Använd en giltig JPG-, PNG- eller WebP-bild.'});
   const input=Buffer.from(match[2],'base64');if(input.length<100||input.length>8*1024*1024)return res.status(400).json({error:'Originalbilden måste vara mindre än 8 MB.'});
   const mime=match[1],styles={luxury:'Warm beige stone, champagne-gold accents, soft premium studio lighting, refined shadows and subtle reflections.',dark:'Deep charcoal background, restrained warm gold accents, dramatic but clean premium studio lighting.',ivory:'Clean ivory background, soft diffused daylight, subtle natural shadow, minimal high-end editorial product photography.'};
   if(!Object.prototype.hasOwnProperty.call(styles,style))return res.status(400).json({error:'Ogiltig bildstil.'});
@@ -241,7 +241,7 @@ app.post('/api/admin/image-studio/generate',auth,async(req,res)=>{
   try{
     const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-nano-banana-2.1:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({contents:[{parts:[{text:prompt},{inlineData:{mimeType:mime,data:input.toString('base64')}}]}],generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:'4:5',imageSize:'1K'}}}),signal:controller.signal});
     const payload=await response.json().catch(()=>({}));if(!response.ok){console.error('[Image Studio] Gemini API error:',response.status,JSON.stringify(payload).slice(0,1000));return res.status(502).json({error:'Bildtjänsten kunde inte skapa bilden. Kontrollera API-åtkomst och modellinställningar.'})}
-    const parts=payload.candidates?.[0]?.content?.parts||[],generated=parts.find(p=>p.inlineData?.data&&/^image\\/(png|jpeg|webp)$/.test(p.inlineData.mimeType||''));
+    const parts=payload.candidates?.[0]?.content?.parts||[],generated=parts.find(p=>p.inlineData?.data&&/^image\/(png|jpeg|webp)$/.test(p.inlineData.mimeType||''));
     if(!generated)return res.status(502).json({error:'AI-tjänsten returnerade ingen giltig bild. Originalet är oförändrat.'});
     const output=Buffer.from(generated.inlineData.data,'base64');if(output.length<100||output.length>20*1024*1024)return res.status(502).json({error:'Den genererade bilden hade en ogiltig storlek.'});
     const id=crypto.randomUUID();await pool.query('INSERT INTO generated_product_images(id,product_id,mime_type,image_data,original_image_url) VALUES($1,$2,$3,$4,$5)',[id,productId,generated.inlineData.mimeType,output.toString('base64'),String(product.image||'')]);
