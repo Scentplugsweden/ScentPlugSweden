@@ -11,6 +11,7 @@ const STRIPE_WEBHOOK_SECRET=process.env.STRIPE_WEBHOOK_SECRET||'';
 const stripe=STRIPE_SECRET_KEY?Stripe(STRIPE_SECRET_KEY):null;
 const sessions=new Map();
 const pool=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},connectionTimeoutMillis:5000,query_timeout:10000,idleTimeoutMillis:30000}):null;
+if(pool)pool.on('error',err=>console.error('[DB] Unexpected idle client error:',err.message));
 let dbReady=!pool,dbError=null,serverStartedAt=new Date().toISOString();
 const TRANSLATION_PREFIX='__SP_TRANSLATIONS__:';
 const TRANSLATION_LANGS=['en','de','fr'];
@@ -262,4 +263,24 @@ app.get('/order/success',(req,res)=>res.sendFile(path.join(__dirname,'public','s
 app.get('/terms',(req,res)=>res.sendFile(path.join(__dirname,'public','terms.html')));
 app.get('/privacy',(req,res)=>res.sendFile(path.join(__dirname,'public','privacy.html')));
 app.listen(PORT,()=>console.log(`ScentPlugSweden V7 HTTP server listening on ${PORT}; storage=${pool?'PostgreSQL':'JSON'}`));
-if(pool){initDb().then(()=>{dbReady=true;dbError=null;console.log('[DB] Initialization complete')}).catch(e=>{dbReady=false;dbError=e;console.error('[DB] Initialization failed; HTTP server remains available for diagnostics:',e)})}else{initDb().catch(e=>console.error('[DB] JSON initialization warning:',e))}
+async function initializeDatabaseWithRetry(){
+  let attempt=0;
+  while(true){
+    try{
+      await initDb();
+      dbReady=true;
+      dbError=null;
+      console.log('[DB] Initialization complete');
+      return;
+    }catch(err){
+      dbReady=false;
+      dbError=err;
+      attempt+=1;
+      const delay=Math.min(30000,1000*(2**Math.min(attempt,5)));
+      console.error(`[DB] Initialization attempt ${attempt} failed; retrying in ${delay}ms:`,err.message);
+      await new Promise(resolve=>setTimeout(resolve,delay));
+    }
+  }
+}
+if(pool)initializeDatabaseWithRetry();
+else initDb().catch(e=>console.error('[DB] JSON initialization warning:',e));
